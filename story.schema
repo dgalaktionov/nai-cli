@@ -1,0 +1,532 @@
+{
+	"$schema": "http://json-schema.org/draft-06/schema#",
+	"$ref": "#/definitions/Book",
+	"definitions": {
+		"Book": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"storyContainerVersion": {
+					"type": "integer"
+				},
+				"metadata": {
+					"$ref": "#/definitions/Metadata"
+				},
+				"content": {
+					"$ref": "#/definitions/Content"
+				}
+			},
+			"required": [
+				"content",
+				"metadata",
+				"storyContainerVersion"
+			],
+			"title": "Book"
+		},
+		"Content": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"storyContentVersion": {
+					"type": "integer"
+				},
+				"settings": {
+					"$ref": "#/definitions/ContentSettings"
+				},
+				"story": {
+					"$ref": "#/definitions/Story"
+				},
+				"context": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Context"
+					}
+				},
+				"lorebook": {
+					"$ref": "#/definitions/Lorebook"
+				},
+				"storyContextConfig": {
+					"$ref": "#/definitions/ContextConfig"
+				},
+				"ephemeralContext": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/EphemeralContext"
+					}
+				}
+			},
+			"required": [
+				"context",
+				"ephemeralContext",
+				"lorebook",
+				"settings",
+				"story",
+				"storyContentVersion",
+				"storyContextConfig"
+			],
+			"title": "Content"
+		},
+		"Context": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"text": {
+					"type": "string"
+				},
+				"contextConfig": {
+					"$ref": "#/definitions/ContextConfig"
+				}
+			},
+			"required": [
+				"contextConfig",
+				"text"
+			],
+			"title": "Context"
+		},
+		"ContextConfig": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"prefix": {
+					"type": "string"
+				},
+				"suffix": {
+					"type": "string"
+				},
+				"tokenBudget": {
+					"type": "integer"
+				},
+				"reservedTokens": {
+					"type": "integer"
+				},
+				"budgetPriority": {
+					"type": "integer"
+				},
+				"trimDirection": {
+					"$ref": "#/definitions/TrimDirection"
+				},
+				"insertionType": {
+					"$ref": "#/definitions/InsertionType"
+				},
+				"maximumTrimType": {
+					"$ref": "#/definitions/TrimType"
+				},
+				"insertionPosition": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"budgetPriority",
+				"insertionPosition",
+				"insertionType",
+				"maximumTrimType",
+				"prefix",
+				"reservedTokens",
+				"suffix",
+				"tokenBudget",
+				"trimDirection"
+			],
+			"title": "ContextConfig"
+		},
+		"EphemeralContext": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"text": {
+					"type": "string"
+				},
+				"contextConfig": {
+					"$ref": "#/definitions/ContextConfig"
+				},
+				"startingStep": {
+					"type": "integer"
+				},
+				"delay": {
+					"type": "integer"
+				},
+				"duration": {
+					"type": "integer"
+				},
+				"repeat": {
+					"type": "boolean"
+				},
+				"reverse": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"contextConfig",
+				"delay",
+				"duration",
+				"repeat",
+				"reverse",
+				"startingStep",
+				"text"
+			],
+			"title": "EphemeralContext"
+		},
+		"Lorebook": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"lorebookVersion": {
+					"type": "integer"
+				},
+				"entries": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Entry"
+					}
+				},
+				"settings": {
+					"$ref": "#/definitions/LorebookSettings"
+				}
+			},
+			"required": [
+				"entries",
+				"lorebookVersion",
+				"settings"
+			],
+			"title": "Lorebook"
+		},
+		"Entry": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"text": {
+					"type": "string"
+				},
+				"contextConfig": {
+					"$ref": "#/definitions/ContextConfig"
+				},
+				"lastUpdatedAt": {
+					"type": "integer"
+				},
+				"displayName": {
+					"type": "string"
+				},
+				"keys": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"searchRange": {
+					"type": "integer"
+				},
+				"enabled": {
+					"type": "boolean"
+				},
+				"forceActivation": {
+					"type": "boolean"
+				},
+				"keyRelative": {
+					"type": "boolean"
+				},
+				"nonStoryActivatable": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"contextConfig",
+				"displayName",
+				"enabled",
+				"forceActivation",
+				"keyRelative",
+				"keys",
+				"lastUpdatedAt",
+				"nonStoryActivatable",
+				"searchRange",
+				"text"
+			],
+			"title": "Entry"
+		},
+		"LorebookSettings": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"orderByKeyLocations": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"orderByKeyLocations"
+			],
+			"title": "LorebookSettings"
+		},
+		"ContentSettings": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"parameters": {
+					"$ref": "#/definitions/Parameters"
+				},
+				"trimResponses": {
+					"type": "boolean"
+				},
+				"banBrackets": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"banBrackets",
+				"parameters",
+				"trimResponses"
+			],
+			"title": "ContentSettings"
+		},
+		"Parameters": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"temperature": {
+					"type": "number"
+				},
+				"max_length": {
+					"type": "integer"
+				},
+				"min_length": {
+					"type": "integer"
+				},
+				"top_k": {
+					"type": "integer"
+				},
+				"top_p": {
+					"type": "number"
+				},
+				"tail_free_sampling": {
+					"type": "number"
+				},
+				"repetition_penalty": {
+					"type": "integer"
+				},
+				"repetition_penalty_range": {
+					"type": "integer"
+				},
+				"repetition_penalty_slope": {
+					"type": "number"
+				},
+				"bad_words_ids": {
+					"type": "array",
+					"items": {
+						"type": "array",
+						"items": {
+							"type": "integer"
+						}
+					}
+				},
+				"prefix": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"bad_words_ids",
+				"max_length",
+				"min_length",
+				"prefix",
+				"repetition_penalty",
+				"repetition_penalty_range",
+				"repetition_penalty_slope",
+				"tail_free_sampling",
+				"temperature",
+				"top_k",
+				"top_p"
+			],
+			"title": "Parameters"
+		},
+		"Story": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"version": {
+					"type": "integer"
+				},
+				"step": {
+					"type": "integer"
+				},
+				"datablocks": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Datablock"
+					}
+				},
+				"currentBlock": {
+					"type": "integer"
+				},
+				"fragments": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Fragment"
+					}
+				}
+			},
+			"required": [
+				"currentBlock",
+				"datablocks",
+				"fragments",
+				"step",
+				"version"
+			],
+			"title": "Story"
+		},
+		"Datablock": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"nextBlock": {
+					"type": "array",
+					"items": {
+						"type": "integer"
+					}
+				},
+				"prevBlock": {
+					"type": "integer"
+				},
+				"origin": {
+					"$ref": "#/definitions/Origin"
+				},
+				"startIndex": {
+					"type": "integer"
+				},
+				"endIndex": {
+					"type": "integer"
+				},
+				"dataFragment": {
+					"$ref": "#/definitions/Fragment"
+				},
+				"fragmentIndex": {
+					"type": "integer"
+				},
+				"removedFragments": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Fragment"
+					}
+				},
+				"chain": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"chain",
+				"dataFragment",
+				"endIndex",
+				"fragmentIndex",
+				"nextBlock",
+				"origin",
+				"prevBlock",
+				"removedFragments",
+				"startIndex"
+			],
+			"title": "Datablock"
+		},
+		"Fragment": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"data": {
+					"type": "string"
+				},
+				"origin": {
+					"$ref": "#/definitions/Origin"
+				}
+			},
+			"required": [
+				"data",
+				"origin"
+			],
+			"title": "Fragment"
+		},
+		"Metadata": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"storyMetadataVersion": {
+					"type": "integer"
+				},
+				"id": {
+					"type": "string",
+					"format": "uuid"
+				},
+				"title": {
+					"type": "string"
+				},
+				"description": {
+					"type": "string"
+				},
+				"textPreview": {
+					"type": "string"
+				},
+				"favorite": {
+					"type": "boolean"
+				},
+				"tags": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"createdAt": {
+					"type": "integer"
+				},
+				"lastUpdatedAt": {
+					"type": "integer"
+				},
+				"isModified": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"createdAt",
+				"description",
+				"favorite",
+				"id",
+				"isModified",
+				"lastUpdatedAt",
+				"storyMetadataVersion",
+				"tags",
+				"textPreview",
+				"title"
+			],
+			"title": "Metadata"
+		},
+		"InsertionType": {
+			"type": "string",
+			"enum": [
+				"newline",
+				"sentence",
+				"token"
+			],
+			"title": "InsertionType"
+		},
+		"TrimType": {
+			"type": "string",
+			"enum": [
+				"newline",
+				"sentence",
+				"token"
+			],
+			"title": "TrimType"
+		},
+		"TrimDirection": {
+			"type": "string",
+			"enum": [
+				"trimTop",
+				"trimBottom",
+				"doNotTrim"
+			],
+			"title": "TrimDirection"
+		},
+		"Origin": {
+			"type": "string",
+			"enum": [
+				"root",
+				"prompt",
+				"ai",
+				"edit",
+				"user"
+			],
+			"title": "Origin"
+		}
+	}
+}
