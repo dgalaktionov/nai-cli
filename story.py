@@ -606,19 +606,46 @@ def Booktodict(x: Book) -> Any:
     return to_class(Book, x)
 
 
-def open_story_file(path: str) -> 'Book':
+def open_story_file(path: str) -> "Book":
     sf = open(path)
     book = Bookfromdict(json.loads(sf.read()))
     sf.close()
     
     return book
 
+def get_trunk_datablocks(story: "Story") -> List["Datablock"]:
+    blockPos: int = story.currentBlock
+    blocks: List["Datablock"] = []
+    
+    while blockPos >= 0:
+        block = story.datablocks[blockPos]
+        blocks.append(block)
+        blockPos = block.prevBlock
+        
+    return reversed(blocks)
+
+def apply_datablock(text: str, block: "Datablock") -> str:
+    return "".join((text[:block.startIndex], block.dataFragment.data, "" if block.origin == Origin.user else text[block.endIndex:]))
+
+def assemble_story_datablocks(story: "Story") -> str:
+    blocks = get_trunk_datablocks(story)
+    text = ""
+    
+    for block in blocks:
+        text = apply_datablock(text, block)
+        #print(text)
+        #print("")
+    
+    return text
+    
+def assemble_story_fragments(story: "Story") -> str:
+    return "".join([f.data for f in story.fragments])
 
 def main(argv):
-    print("Hello world!")
-    
     book = open_story_file("grug.story")
-    print(book)
+    #print(assemble_story_fragments(book.content.story))
+    print(assemble_story_datablocks(book.content.story))
+    #assemble_story_datablocks(book.content.story)
 
 
 if __name__ == "__main__":
