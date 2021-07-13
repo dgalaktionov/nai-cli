@@ -1,5 +1,6 @@
 import json
 from typing import List, Iterator
+from functools import reduce
 
 from .story_model import *
 
@@ -30,15 +31,7 @@ def apply_datablock(text: str, block: "Datablock") -> str:
     return "".join((text[:block.startIndex], block.dataFragment.data, text[max(block.startIndex, block.endIndex):]))
 
 def assemble_story_datablocks(story: "Story") -> str:
-    blocks = get_trunk_datablocks(story)
-    text = ""
-    
-    for block in blocks:
-        text = apply_datablock(text, block)
-        #print(text)
-        #print("")
-    
-    return text
+    return reduce(apply_datablock, get_trunk_datablocks(story), "")
     
 def assemble_story_fragments(story: "Story") -> str:
     return "".join([f.data for f in story.fragments])
