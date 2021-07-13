@@ -625,7 +625,12 @@ def get_trunk_datablocks(story: "Story") -> List["Datablock"]:
     return reversed(blocks)
 
 def apply_datablock(text: str, block: "Datablock") -> str:
-    return "".join((text[:block.startIndex], block.dataFragment.data, "" if block.origin == Origin.user else text[block.endIndex:]))
+    """ Sometimes, like for blocks with origin "user", block.startId <= block.endId can be false.
+        Since NAI does not seem to ever generate blocks with the intentions of copying from past text, 
+        I choose to interpret it the same way as if endIndex held the same value as startIndex, 
+        i.e a text insertion case.
+    """
+    return "".join((text[:block.startIndex], block.dataFragment.data, text[max(block.startIndex, block.endIndex):]))
 
 def assemble_story_datablocks(story: "Story") -> str:
     blocks = get_trunk_datablocks(story)
