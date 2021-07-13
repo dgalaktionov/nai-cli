@@ -323,7 +323,6 @@
 				"bad_words_ids",
 				"max_length",
 				"min_length",
-				"prefix",
 				"repetition_penalty",
 				"repetition_penalty_range",
 				"repetition_penalty_slope",

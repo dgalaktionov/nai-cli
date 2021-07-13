@@ -1,9 +1,7 @@
-"""Prototype parser for .story files"""
+"""Generated code from story.schema, do not modify manually!"""
 
-import json
-import sys
 from enum import Enum
-from typing import Any, List, TypeVar, Type, cast, Callable
+from typing import Any, List, Optional, TypeVar, Type, cast, Callable
 from uuid import UUID
 
 
@@ -39,6 +37,20 @@ def from_bool(x: Any) -> bool:
 def from_list(f: Callable[[Any], T], x: Any) -> List[T]:
     assert isinstance(x, list)
     return [f(y) for y in x]
+
+
+def from_none(x: Any) -> Any:
+    assert x is None
+    return x
+
+
+def from_union(fs, x):
+    for f in fs:
+        try:
+            return f(x)
+        except:
+            pass
+    assert False
 
 
 def from_float(x: Any) -> float:
@@ -279,7 +291,7 @@ class Parameters:
     badwordsids: List[List[int]]
     maxlength: int
     minlength: int
-    prefix: str
+    prefix: Optional[str]
     repetitionpenalty: int
     repetitionpenaltyrange: int
     repetitionpenaltyslope: float
@@ -288,7 +300,7 @@ class Parameters:
     topk: int
     topp: float
 
-    def __init__(self, badwordsids: List[List[int]], maxlength: int, minlength: int, prefix: str, repetitionpenalty: int, repetitionpenaltyrange: int, repetitionpenaltyslope: float, tailfreesampling: float, temperature: float, topk: int, topp: float) -> None:
+    def __init__(self, badwordsids: List[List[int]], maxlength: int, minlength: int, prefix: Optional[str], repetitionpenalty: int, repetitionpenaltyrange: int, repetitionpenaltyslope: float, tailfreesampling: float, temperature: float, topk: int, topp: float) -> None:
         self.badwordsids = badwordsids
         self.maxlength = maxlength
         self.minlength = minlength
@@ -307,7 +319,7 @@ class Parameters:
         badwordsids = from_list(lambda x: from_list(from_int, x), obj.get("bad_words_ids"))
         maxlength = from_int(obj.get("max_length"))
         minlength = from_int(obj.get("min_length"))
-        prefix = from_str(obj.get("prefix"))
+        prefix = from_union([from_str, from_none], obj.get("prefix"))
         repetitionpenalty = from_int(obj.get("repetition_penalty"))
         repetitionpenaltyrange = from_int(obj.get("repetition_penalty_range"))
         repetitionpenaltyslope = from_float(obj.get("repetition_penalty_slope"))
@@ -322,7 +334,7 @@ class Parameters:
         result["bad_words_ids"] = from_list(lambda x: from_list(from_int, x), self.badwordsids)
         result["max_length"] = from_int(self.maxlength)
         result["min_length"] = from_int(self.minlength)
-        result["prefix"] = from_str(self.prefix)
+        result["prefix"] = from_union([from_str, from_none], self.prefix)
         result["repetition_penalty"] = from_int(self.repetitionpenalty)
         result["repetition_penalty_range"] = from_int(self.repetitionpenaltyrange)
         result["repetition_penalty_slope"] = to_float(self.repetitionpenaltyslope)
@@ -593,9 +605,6 @@ class Book:
         result["metadata"] = to_class(Metadata, self.metadata)
         result["storyContainerVersion"] = from_int(self.storyContainerVersion)
         return result
-        
-    def __str__(self):
-        return str(self.to_dict())
 
 
 def Bookfromdict(s: Any) -> Book:
@@ -604,54 +613,3 @@ def Bookfromdict(s: Any) -> Book:
 
 def Booktodict(x: Book) -> Any:
     return to_class(Book, x)
-
-
-def open_story_file(path: str) -> "Book":
-    sf = open(path)
-    book = Bookfromdict(json.loads(sf.read()))
-    sf.close()
-    
-    return book
-
-def get_trunk_datablocks(story: "Story") -> List["Datablock"]:
-    blockPos: int = story.currentBlock
-    blocks: List["Datablock"] = []
-    
-    while blockPos >= 0:
-        block = story.datablocks[blockPos]
-        blocks.append(block)
-        blockPos = block.prevBlock
-        
-    return reversed(blocks)
-
-def apply_datablock(text: str, block: "Datablock") -> str:
-    """ Sometimes, like for blocks with origin "user", block.startId <= block.endId can be false.
-        Since NAI does not seem to ever generate blocks with the intentions of copying from past text, 
-        I choose to interpret it the same way as if endIndex held the same value as startIndex, 
-        i.e a text insertion case.
-    """
-    return "".join((text[:block.startIndex], block.dataFragment.data, text[max(block.startIndex, block.endIndex):]))
-
-def assemble_story_datablocks(story: "Story") -> str:
-    blocks = get_trunk_datablocks(story)
-    text = ""
-    
-    for block in blocks:
-        text = apply_datablock(text, block)
-        #print(text)
-        #print("")
-    
-    return text
-    
-def assemble_story_fragments(story: "Story") -> str:
-    return "".join([f.data for f in story.fragments])
-
-def main(argv):
-    book = open_story_file("grug.story")
-    #print(assemble_story_fragments(book.content.story))
-    print(assemble_story_datablocks(book.content.story))
-    #assemble_story_datablocks(book.content.story)
-
-
-if __name__ == "__main__":
-    main(sys.argv)
