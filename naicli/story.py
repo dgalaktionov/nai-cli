@@ -2,6 +2,7 @@ import json
 from typing import List, Iterator
 from functools import reduce
 
+from .util import *
 from .story_model import *
 
 def open_story_file(path: str) -> "Book":
@@ -28,11 +29,11 @@ def apply_datablock(text: str, block: "Datablock") -> str:
         I choose to interpret it the same way as if endIndex held the same value as startIndex, 
         i.e a text insertion case.
     """
-    return "".join((text[:block.startIndex], block.dataFragment.data, text[max(block.startIndex, block.endIndex):]))
+    return join_strings(text[:block.startIndex], block.dataFragment.data, text[max(block.startIndex, block.endIndex):])
 
 def assemble_story_datablocks(story: "Story") -> str:
     return reduce(apply_datablock, get_trunk_datablocks(story), "")
     
 def assemble_story_fragments(story: "Story") -> str:
-    return "".join([f.data for f in story.fragments])
+    return join_strings(*[f.data for f in story.fragments])
 

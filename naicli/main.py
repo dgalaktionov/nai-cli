@@ -13,7 +13,8 @@ def main(argv=sys.argv):
     # with open("../book.txt") as bigfile:
         # bigtext = bigfile.read()
         
-    repl.start_prompt(bigtext)
+    #repl.start_prompt(bigtext)
+    
 
 if __name__ == "__main__":
     main(sys.argv)
