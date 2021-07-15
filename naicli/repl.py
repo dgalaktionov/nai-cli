@@ -16,9 +16,5 @@ def start_prompt(initial_text: str = "") -> None:
     text = initial_text
 
     while 1:
-        text = s.prompt(default=text)
+        text += s.prompt(text)
         click.clear()
-        #gc.collect()
-        #message = click.edit(user_input)
-        #print(user_input)
-        #sys.stdout.write(user_input)
