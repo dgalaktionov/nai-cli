@@ -45,12 +45,13 @@ def test_get_fragment_delimiters(story):
     
     # evaluaute two times to fully test cache
     for _ in range(2):
-        i = 0
+        end = 0
+        fragment_delimiters = get_fragment_delimiters(story)
+        assert len(fragments) == len(fragment_delimiters)
     
-        for fragment in fragments:
-            (start, end) = get_fragment_delimiters(story, fragment)
-            assert (start, end) == (i, i+len(fragment.data))
-            i += len(fragment.data)
+        for i, fragment in enumerate(fragments):
+            end += len(fragment.data)
+            assert fragment_delimiters[i] == end
 
 def _test_position_to_fragment(story, full_text, position):
     fragments = story.fragments
