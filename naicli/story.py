@@ -56,15 +56,27 @@ def position_to_fragment(story: "Story", absolute_position: int) -> (int, int):
         the first element being the number of the fragment that would contain that final position, 
         while the second element is the equivalent relative position inside the mentioned fragment.
         When the position is at the end of the final text, (-1,0) is returned.
-        
-        TODO: consider implementing an exponential search for faster lookup
     """
     if absolute_position < 0:
         raise ValueError(f"Supplied a negative absolute position {absolute_position}")
     
-    fragment_delimiters = enumerate(get_fragment_delimiters(story))
-    return next(((i, absolute_position - frag_end + len(story.fragments[i].data)) 
-        for i, frag_end in fragment_delimiters if frag_end > absolute_position), (-1, 0))
+    fragment_delimiters = get_fragment_delimiters(story)
+    
+    """
+        In practice, most of the displaying and editing will be performed close to the end of the text.
+        This simple heuristic allows me to determine if the exponential search should start from the end (rightmost) 
+        fragments instead of the start (leftmost) ones.
+    """
+    search_from_end = len(fragment_delimiters) > 0 and absolute_position >= fragment_delimiters[len(fragment_delimiters)//2]
+    fragment_number = exponential_search(fragment_delimiters, absolute_position, from_end=search_from_end)
+    
+    if fragment_number < len(fragment_delimiters):
+        fragment_start = 0 if fragment_number == 0 else fragment_delimiters[fragment_number-1] 
+        relative_position = absolute_position - fragment_start
+        return (fragment_number, relative_position)
+    else:
+        # absolute_position >= end_of_text
+        return (-1, 0)
 
 def insert_text(story: "Story", text: str, pos: int) -> "Story":
     #probably should be insert_fragment instead, or even change apply_datablock to make more sense...
