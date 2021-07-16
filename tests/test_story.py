@@ -17,14 +17,10 @@ def full_text(book):
 @pytest.fixture(scope="module")
 def story(book):
     return book.content.story
-    
-@pytest.fixture(scope="module")
-def fragments(story):
-    return story.fragments
 
 @pytest.fixture(scope="module")
-def fragment_delimiters(fragments):
-    return list(accumulate(map(lambda f: len(f.data), fragments)))
+def fragment_delimiters(story):
+    return get_fragment_delimiters(story)
 
 def test_book(book):
     assert isinstance(book, Book)
@@ -95,3 +91,21 @@ def test_position_around_delimiters(story, full_text, fragment_delimiters, i):
     _test_position_to_fragment(story, full_text, position-1)
     _test_position_to_fragment(story, full_text, position)
     _test_position_to_fragment(story, full_text, position+1)
+
+
+def test_fragment_to_position(story, fragment_delimiters):
+    fragments = story.fragments
+    
+    # special cases first
+    assert fragment_to_position(story, -1) == fragment_delimiters[-1]
+    
+    with pytest.raises(IndexError):
+        fragment_to_position(story, len(fragment_delimiters))
+    
+    for fragment_number in range(len(fragment_delimiters)):
+        i = fragment_number
+        while i < len(fragments) and len(fragments[i].data) == 0: i += 1
+        if i >= len(fragments): i == -1
+        
+        absolute_position: int = fragment_to_position(story, fragment_number)
+        assert position_to_fragment(story, absolute_position) == (i, 0)

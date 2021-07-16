@@ -18,7 +18,7 @@ def get_trunk_datablocks(story: "Story") -> List["Datablock"]:
     blocks: List["Datablock"] = []
     
     while blockPos >= 0:
-        block = story.datablocks[blockPos]
+        block: "Datablock" = story.datablocks[blockPos]
         blocks.append(block)
         blockPos = block.prevBlock
         
@@ -60,23 +60,35 @@ def position_to_fragment(story: "Story", absolute_position: int) -> (int, int):
     if absolute_position < 0:
         raise ValueError(f"Supplied a negative absolute position {absolute_position}")
     
-    fragment_delimiters = get_fragment_delimiters(story)
+    fragment_delimiters: List[int] = get_fragment_delimiters(story)
     
     """
         In practice, most of the displaying and editing will be performed close to the end of the text.
         This simple heuristic allows me to determine if the exponential search should start from the end (rightmost) 
         fragments instead of the start (leftmost) ones.
     """
-    search_from_end = len(fragment_delimiters) > 0 and absolute_position >= fragment_delimiters[len(fragment_delimiters)//2]
-    fragment_number = exponential_search(fragment_delimiters, absolute_position, from_end=search_from_end)
+    search_from_end: bool = len(fragment_delimiters) > 0 and absolute_position >= fragment_delimiters[len(fragment_delimiters)//2]
+    fragment_number: int = exponential_search(fragment_delimiters, absolute_position, from_end=search_from_end)
     
     if fragment_number < len(fragment_delimiters):
-        fragment_start = 0 if fragment_number == 0 else fragment_delimiters[fragment_number-1] 
-        relative_position = absolute_position - fragment_start
+        fragment_start: int = 0 if fragment_number == 0 else fragment_delimiters[fragment_number-1] 
+        relative_position: int = absolute_position - fragment_start
         return (fragment_number, relative_position)
     else:
         # absolute_position >= end_of_text
         return (-1, 0)
+
+def fragment_to_position(story: "Story", fragment_number: int) -> int:
+    """
+        For a fragment number, returns the starting position in the final text.
+    """
+    fragment_delimiters: List[int] = get_fragment_delimiters(story)
+    
+    if fragment_number < 0:
+        # for consistency with position_to_fragment, don't think it will ever
+        return fragment_delimiters[-1]
+    
+    return fragment_delimiters[fragment_number] - len(story.fragments[fragment_number].data)
 
 def insert_text(story: "Story", text: str, pos: int) -> "Story":
     #probably should be insert_fragment instead, or even change apply_datablock to make more sense...
