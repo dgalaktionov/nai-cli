@@ -3,8 +3,10 @@ import pytest
 from naicli.story_model import *
 from naicli.story import *
 
-from hypothesis import given, assume
-from hypothesis.strategies import integers
+from hypothesis import given, assume, settings
+from hypothesis.strategies import integers, text
+
+from copy import deepcopy
 
 @pytest.fixture(scope="module")
 def book():
@@ -21,6 +23,11 @@ def story(book):
 @pytest.fixture
 def empty_story():
     return Story(fragments=[], datablocks=[], step=0, currentBlock=0, version=0)
+
+@pytest.fixture
+def empty_datablock():
+    return Datablock(chain=False, dataFragment=Fragment(data="", origin=Origin.edit), startIndex=0, endIndex=0, 
+        fragmentIndex=-1, nextBlock=[], origin=Origin.edit, removedFragments=[], prevBlock = -1)
 
 def test_book(book):
     assert isinstance(book, Book)
@@ -126,3 +133,34 @@ def test_assemble_story_datablocks(story, empty_story, full_text):
     for f1,f2 in zip(final_story.fragments, story.fragments):
         assert (f1.data, f1.origin) == (f2.data, f2.origin)
 
+def test_append_datablock(story, empty_story, empty_datablock):
+    alt_story = empty_story
+    datablocks = deepcopy(story.datablocks)
+    alt_story.datablocks = datablocks
+    alt_story.currentBlock = story.currentBlock
+    prev_datablock_number = alt_story.currentBlock
+    
+    assert prev_datablock_number > 0
+    assert prev_datablock_number < len(datablocks)
+    
+    assert empty_datablock != datablocks[prev_datablock_number]
+    append_datablock(alt_story, empty_datablock)
+    assert alt_story.currentBlock > prev_datablock_number
+    assert empty_datablock == datablocks[alt_story.currentBlock]
+    assert empty_datablock.prevBlock == prev_datablock_number
+    assert alt_story.currentBlock in datablocks[prev_datablock_number].nextBlock
+
+def _i1k():
+    return integers(min_value=0, max_value=1000)
+
+@pytest.fixture(scope="module")
+def story_copy(story):
+    return deepcopy(story)
+
+@given(text(), _i1k(), _i1k())
+@settings(max_examples=1000)
+def test_insert_text(story_copy, new_text, start_position, end_position):
+    assume(end_position >= start_position)
+    story_text = assemble_story_fragments(story_copy.fragments)
+    new_story_text = assemble_story_fragments(insert_text(story_copy, new_text, start_position, end_position).fragments)
+    assert join_strings(story_text[:start_position], new_text, story_text [end_position:]) == new_story_text

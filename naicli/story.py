@@ -1,5 +1,5 @@
 import json
-from typing import List, Iterator
+from typing import List, Iterator, Optional
 from functools import reduce, lru_cache, partial
 from itertools import accumulate
 
@@ -115,6 +115,18 @@ def apply_datablock(story: "Story", block: "Datablock") -> "Story":
     get_fragment_delimiters.cache_clear()
     return story
 
-def insert_text(story: "Story", text: str, pos: int) -> "Story":
-    #probably should be insert_fragment instead, or even change apply_datablock to make more sense...
-    pass
+def append_datablock(story: "Story", block: "Datablock") -> None:
+    datablocks: List["Datablock"] = story.datablocks
+    datablocks.append(block)
+    block_num: int = len(datablocks)-1
+    block.prevBlock = story.currentBlock
+    datablocks[story.currentBlock].nextBlock.append(block_num)
+    story.currentBlock = block_num
+
+def insert_text(story: "Story", text: str, start_position: int, end_position: Optional[int] = None, origin: "Origin" = Origin.edit) -> "Story":
+    if not end_position or end_position < start_position: end_position = start_position
+    block: "Datablock" = Datablock(chain=False, dataFragment=Fragment(data=text, origin=origin), startIndex=start_position, endIndex=end_position, 
+        fragmentIndex=-1, nextBlock=[], origin=origin, removedFragments=[], prevBlock=-1)
+    apply_datablock(story, block)
+    append_datablock(story, block)
+    return story
