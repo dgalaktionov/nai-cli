@@ -39,15 +39,28 @@ def test_assemble_story(story, full_text):
     assert len(full_text) > 0
     assert full_text == assemble_story_datablocks(story) == assemble_story_fragments(story.fragments)
 
+def test_get_fragment_delimiters(story):
+    fragments = story.fragments
+    assert len(fragments) > 0
+    
+    # evaluaute two times to fully test cache
+    for _ in range(2):
+        i = 0
+    
+        for fragment in fragments:
+            (start, end) = get_fragment_delimiters(story, fragment)
+            assert (start, end) == (i, i+len(fragment.data))
+            i += len(fragment.data)
 
-def _test_position_to_fragment(fragments, full_text, position):
+def _test_position_to_fragment(story, full_text, position):
+    fragments = story.fragments
     assert len(fragments) > 0
     
     if position < 0:
         with pytest.raises(ValueError):
-            position_to_fragment(fragments, position)
+            position_to_fragment(story, position)
     else:
-        (fragment_number, relative_position) = position_to_fragment(fragments, position)
+        (fragment_number, relative_position) = position_to_fragment(story, position)
         
         if position >= len(full_text):
             assert (fragment_number, relative_position) == (-1,0)
@@ -58,24 +71,26 @@ def _test_position_to_fragment(fragments, full_text, position):
             assert 0 <= relative_position < len(fragment_text)
             assert full_text[position:].startswith(fragments[fragment_number].data[relative_position:])
 
-def test_position_to_fragment(fragments, full_text):
-    _test_position_to_fragment(fragments, full_text, -1)
-    _test_position_to_fragment(fragments, full_text, 0)
-    _test_position_to_fragment(fragments, full_text, len(full_text)-1)
-    _test_position_to_fragment(fragments, full_text, len(full_text))
-    _test_position_to_fragment(fragments, full_text, len(full_text)+1)
-    _test_position_to_fragment(fragments, full_text, len(full_text)+10)
-    _test_position_to_fragment(fragments, full_text, len(full_text)//2)
+def test_position_to_fragment(story, full_text):
+    _test_position_to_fragment(story, full_text, -1)
+    _test_position_to_fragment(story, full_text, 0)
+    _test_position_to_fragment(story, full_text, len(full_text)-1)
+    _test_position_to_fragment(story, full_text, len(full_text))
+    _test_position_to_fragment(story, full_text, len(full_text)+1)
+    _test_position_to_fragment(story, full_text, len(full_text)+10)
+    _test_position_to_fragment(story, full_text, len(full_text)//2)
 
 def test_position_to_empty_fragments():
     empty_fragment = Fragment(data="", origin=Origin.prompt)
-    test_position_to_fragment([empty_fragment], "")
-    test_position_to_fragment([empty_fragment,empty_fragment,empty_fragment], "")
+    story = Story(fragments=[empty_fragment], datablocks=[], step=0, currentBlock=0, version=0)
+    test_position_to_fragment(story, "")
+    story.fragments = [empty_fragment,empty_fragment,empty_fragment]
+    test_position_to_fragment(story, "")
 
 @given(integers(min_value=0, max_value=40))
-def test_position_around_delimiters(fragments, full_text, fragment_delimiters, i):
+def test_position_around_delimiters(story, full_text, fragment_delimiters, i):
     assume(i < len(fragment_delimiters))
     position = fragment_delimiters[i]
-    _test_position_to_fragment(fragments, full_text, position-1)
-    _test_position_to_fragment(fragments, full_text, position)
-    _test_position_to_fragment(fragments, full_text, position+1)
+    _test_position_to_fragment(story, full_text, position-1)
+    _test_position_to_fragment(story, full_text, position)
+    _test_position_to_fragment(story, full_text, position+1)

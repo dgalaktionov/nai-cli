@@ -1,6 +1,6 @@
 import json
 from typing import List, Iterator
-from functools import reduce
+from functools import reduce, cache, partial
 from itertools import accumulate
 
 from .util import *
@@ -39,21 +39,35 @@ def assemble_story_datablocks(story: "Story") -> str:
 def assemble_story_fragments(fragments: List["Fragment"]) -> str:
     return join_strings(*[f.data for f in fragments])
 
-def position_to_fragment(fragments: List["Fragment"], absolute_position: int) -> (int, int):
+@cache
+def get_fragment_delimiters(story: "Story", fragment: "Fragment") -> (int,int):
+    """
+        Given a Story and one of its Fragments, returns the a pair with the start and end positions that it would have 
+        in the final text.
+        Cached for efficiency, if the text management is done right there should be no need to ever invalidate!
+    """
+    fragment_position: int = story.fragments.index(fragment)
+    
+    if fragment_position == 0:
+        return (0, len(fragment.data))
+    else:
+        start_position = get_fragment_delimiters(story, story.fragments[fragment_position-1])[1]
+        return (start_position, start_position+len(fragment.data))
+
+def position_to_fragment(story: "Story", absolute_position: int) -> (int, int):
     """
         Given a position in the final text, return a pair of (fragment_number, relative_position), 
         the first element being the number of the fragment that would contain that final position, 
         while the second element is the equivalent relative position inside the mentioned fragment.
         When the position is at the end of the final text, (-1,0) is returned.
         
-        TODO: consider building a nice tree to index this for faster lookup
+        TODO: consider implementing an exponential search for faster lookup
     """
     if absolute_position < 0:
         raise ValueError(f"Supplied a negative absolute position {absolute_position}")
     
-    fragment_ends = enumerate(accumulate(map(lambda f: len(f.data), fragments)))
-    return next(((fragment_number, absolute_position - fragment_end + len(fragments[fragment_number].data)) 
-        for fragment_number, fragment_end in fragment_ends if fragment_end > absolute_position), (-1, 0))
+    fragment_delimiters = enumerate(map(partial(get_fragment_delimiters, story), story.fragments))
+    return next(((i, absolute_position - delim[0]) for i, delim in fragment_delimiters if delim[1] > absolute_position), (-1, 0))
 
 def insert_text(story: "Story", text: str, pos: int) -> "Story":
     #probably should be insert_fragment instead, or even change apply_datablock to make more sense...
