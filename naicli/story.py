@@ -90,6 +90,7 @@ def apply_datablock(story: "Story", block: "Datablock") -> "Story":
     
     if start_fragment_number >= len(fragments):
         # append
+        block.fragmentIndex = start_fragment_number if len(fragments) > 0 else -1
         fragments.append(block.dataFragment)
     else:
         # insert before the end
@@ -99,19 +100,17 @@ def apply_datablock(story: "Story", block: "Datablock") -> "Story":
             # the last fragment must always survive!
             end_fragment_number, end_relative_position = len(fragments)-1, len(fragments[-1].data)
         
-        # i hate to do it the mutable way, but it is simply more efficient
         start_fragment, end_fragment = fragments[start_fragment_number], fragments[end_fragment_number]
+        new_start_fragment = Fragment(data=start_fragment.data[:start_relative_position], origin=start_fragment.origin)
+        new_end_fragment = Fragment(data=end_fragment.data[end_relative_position:], origin=end_fragment.origin)
         
-        if start_fragment == end_fragment: 
-            # when we're within the same fragment, we must split it in two!
-            end_fragment = Fragment(data = start_fragment.data, origin = start_fragment.origin)
-            end_fragment_number += 1
-            fragments.insert(end_fragment_number, end_fragment)
-            
-        
-        start_fragment.data = start_fragment.data[:start_relative_position]
-        end_fragment.data = end_fragment.data[end_relative_position:]
-        fragments[start_fragment_number+1:end_fragment_number] = [block.dataFragment]
+        # i hate to do it the mutable way, but it is simply more efficient
+        if start_fragment == end_fragment: end_relative_position -= start_relative_position
+        start_fragment.data = start_fragment.data[start_relative_position:]
+        end_fragment.data = end_fragment.data[:end_relative_position]
+        block.removedFragments = fragments[start_fragment_number:end_fragment_number+1]
+        block.fragmentIndex = start_fragment_number+1
+        fragments[start_fragment_number:end_fragment_number+1] = [new_start_fragment, block.dataFragment, new_end_fragment]
     
     get_fragment_delimiters.cache_clear()
     return story

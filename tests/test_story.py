@@ -50,9 +50,9 @@ def test_get_fragment_delimiters(story):
         fragment_delimiters = get_fragment_delimiters(story)
         assert len(fragments) == len(fragment_delimiters)
     
-        for i, fragment in enumerate(fragments):
+        for fragment_end, fragment in zip(fragment_delimiters, fragments):
             end += len(fragment.data)
-            assert fragment_delimiters[i] == end
+            assert fragment_end == end
 
 def _test_position_to_fragment(story, full_text, position):
     fragments = story.fragments
@@ -123,7 +123,6 @@ def test_assemble_story_datablocks(story, empty_story, full_text):
     assert text == full_text
     assert len(final_story.fragments) == len(story.fragments)
     
-    for i,fragment in enumerate(final_story.fragments):
-        good_fragment = story.fragments[i]
-        assert (fragment.data, fragment.origin) == (good_fragment.data, good_fragment.origin)
+    for f1,f2 in zip(final_story.fragments, story.fragments):
+        assert (f1.data, f1.origin) == (f2.data, f2.origin)
 
