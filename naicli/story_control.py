@@ -24,16 +24,28 @@ class StoryControl(UIControl):
         return None
     
     def create_content(self, width: int, height: int) -> "UIContent":
-        full_text: str = assemble_story_fragments(self.story.fragments)
-        lines_per_fragment = list(accumulate([f.data.count("\n") for f in self.story.fragments]))
+        #full_text: str = assemble_story_fragments(self.story.fragments)
+        newlines_per_fragment = list([f.data.count("\n") for f in self.story.fragments])
+        startlines_fragment = list(accumulate(newlines_per_fragment, initial=0))
         
         def get_line(i: int) -> StyleAndTextTuples:
-            fragment_number = next((number for number,lines in enumerate(lines_per_fragment) if lines > i))
+            fragment_number = max(next((number for number,lines in enumerate(startlines_fragment) if lines >= i))-1, 0)
             fragment = self.story.fragments[fragment_number]
-            start_lines = 0 if fragment_number == 0 else lines_per_fragment[fragment_number-1]
-            return [("", fragment.data.split("\n")[i-start_lines])]
+            start_line = startlines_fragment[fragment_number]
+            fragment_lines = fragment.data.split("\n")
+            fl_position = i-start_line
+            line_fragments = [("", fragment_lines[fl_position])]
+            
+            while fl_position == len(fragment_lines)-1 and fragment_number < len(self.story.fragments)-1:
+                fl_position = 0
+                fragment_number += 1
+                fragment = self.story.fragments[fragment_number]
+                fragment_lines = fragment.data.split("\n")
+                line_fragments.append(("", fragment_lines[fl_position]))
+            
+            return line_fragments
         
         return UIContent(
             get_line=get_line,
-            line_count=lines_per_fragment[-1]
+            line_count=startlines_fragment[-1]+1
         )
