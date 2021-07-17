@@ -18,7 +18,6 @@ def _i100():
     return integers(min_value=-100, max_value=100)
 
 @given(lists(_i100()).map(sorted), _i100())
-@settings(max_examples=1000)
 def test_exponential_search(array: List[int], value: int):
     assume(len(array) > 0)
     assert exponential_search(array, value) == exponential_search(array, value, from_end=True) == bisect.bisect_right(array, value)

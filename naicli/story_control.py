@@ -45,7 +45,7 @@ class StoryControl(UIControl):
                 return (("", fragment.data), could_be_more)
         
         def get_line(i: int) -> StyleAndTextTuples:
-            fragment_number, relative_line = position_to_fragment(self.story, i, get_fragment_heights, comparator=ge)
+            fragment_number, relative_line = line_to_fragment(self.story, i)
             line_fragments: StyleAndTextTuples = []
             could_be_more: bool = True
             

@@ -3,6 +3,7 @@ from typing import List, Iterator, Optional, Callable
 from functools import reduce, lru_cache, partial
 from itertools import accumulate
 from operator import gt
+from bisect import bisect_right, bisect_left
 
 from .util import *
 from .story_model import *
@@ -56,7 +57,7 @@ def get_fragment_heights(story: "Story") -> List[int]:
     return list(accumulate([f.data.count("\n") for f in story.fragments], initial=0))
 
 def position_to_fragment(story: "Story", absolute_position: int, 
-    get_data: Callable[["Story"], List[int]] = get_fragment_delimiters, comparator=gt) -> (int, int):
+    get_data: Callable[["Story"], List[int]] = get_fragment_delimiters, search_method=bisect_right) -> (int, int):
     """
         Given a position in the final text, return a pair of (fragment_number, relative_position), 
         the first element being the number of the fragment that would contain that final position, 
@@ -67,18 +68,16 @@ def position_to_fragment(story: "Story", absolute_position: int,
         fragment number for an absolute text height, then get_fragment_heights should be passed in get_data.
     """
     fragment_delimiters: List[int] = get_data(story)
-    
-    """
-        In practice, most of the displaying and editing will be performed close to the end of the text.
-        This simple heuristic allows me to determine if the exponential search should start from the end (rightmost) 
-        fragments instead of the start (leftmost) ones.
-    """
-    search_from_end: bool = len(fragment_delimiters) > 0 and absolute_position >= fragment_delimiters[len(fragment_delimiters)//2]
+    #search_from_end: bool = len(fragment_delimiters) > 0 and absolute_position >= fragment_delimiters[len(fragment_delimiters)//2]
     fragment_number: int = 0
-    fragment_number = max(0, exponential_search(fragment_delimiters, absolute_position, comparator=comparator, from_end=search_from_end)-1)
+    #fragment_number = max(0, exponential_search(fragment_delimiters, absolute_position, comparator=comparator, from_end=search_from_end)-1)
+    fragment_number = max(0, search_method(fragment_delimiters, absolute_position)-1)
     fragment_start: int = fragment_delimiters[fragment_number]
     relative_position: int = 0 if fragment_number >= len(story.fragments) else absolute_position - fragment_start
     return (fragment_number, relative_position)
+
+def line_to_fragment(story: "Story", absolute_position: int) -> (int, int):
+    return position_to_fragment(story, absolute_position, get_data=get_fragment_heights, search_method=bisect_left)
 
 def fragment_to_position(story: "Story", fragment_number: int, get_data: Callable[["Story"], List[int]] = get_fragment_delimiters) -> int:
     """
