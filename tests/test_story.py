@@ -63,6 +63,22 @@ def test_get_fragment_delimiters(story):
         
         assert position == fragment_delimiters[-1]
 
+def test_get_fragment_height(story):
+    fragments = story.fragments
+    assert len(fragments) > 0
+    
+    # evaluaute two times to fully test cache
+    for _ in range(2):
+        position = 0
+        fragment_delimiters = get_fragment_heights(story)
+        assert len(fragments)+1 == len(fragment_delimiters)
+    
+        for fragment_start, fragment in zip(fragment_delimiters[:-1], fragments):
+            assert fragment_start == position
+            position += fragment.data.count("\n")
+        
+        assert position == fragment_delimiters[-1]
+
 def _test_position_to_fragment(story, full_text, position):
     fragments = story.fragments
     assert len(fragments) > 0
