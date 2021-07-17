@@ -24,7 +24,6 @@ class StoryControl(UIControl):
         return None
     
     def create_content(self, width: int, height: int) -> "UIContent":
-        #full_text: str = assemble_story_fragments(self.story.fragments)
         newlines_per_fragment = list([f.data.count("\n") for f in self.story.fragments])
         startlines_fragment = list(accumulate(newlines_per_fragment, initial=0))
         
@@ -49,3 +48,8 @@ class StoryControl(UIControl):
             get_line=get_line,
             line_count=startlines_fragment[-1]+1
         )
+
+    def benchmark(self, n=1000) -> float:
+        from timeit import timeit
+        content: "UIContent" = self.create_content(0,0)
+        return timeit(lambda: [content.get_line(i) for i in range(content.line_count)], number=n)

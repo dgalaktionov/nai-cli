@@ -22,6 +22,8 @@ def quit(event):
     event.app.exit()
 
 def launch_editor(story: "Story") -> None:
-    layout = Layout(Window(content=StoryControl(story=story), wrap_lines=True))
+    sc = StoryControl(story=story)
+    layout = Layout(Window(content=sc, wrap_lines=True))
     app = Application(layout=layout, key_bindings=kb, full_screen=True)
     app.run()
+    print(sc.benchmark())

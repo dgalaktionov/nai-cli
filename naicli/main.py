@@ -15,7 +15,9 @@ def main(argv=sys.argv):
         # bigtext = bigfile.read()
         
     #repl.start_prompt(bigtext)
-    editor.launch_editor(book.content.story)
+    #editor.launch_editor(book.content.story)
+    from timeit import timeit
+    print(timeit(lambda: get_fragment_delimiters(book.content.story),number=100000))
     
 
 if __name__ == "__main__":

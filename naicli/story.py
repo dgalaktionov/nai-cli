@@ -1,5 +1,5 @@
 import json
-from typing import List, Iterator, Optional
+from typing import List, Iterator, Optional, Callable
 from functools import reduce, lru_cache, partial
 from itertools import accumulate
 
@@ -33,25 +33,42 @@ def assemble_story_fragments(fragments: List["Fragment"]) -> str:
 @lru_cache(maxsize=1)
 def get_fragment_delimiters(story: "Story") -> List[int]:
     """
-        Given a Story with Fragments, returns a list with the end position that each fragment would correspond to in 
-        the final text, effectively providing the delimiting positions that separate the fragments.
+        Given a Story with n Fragments, returns a list of n+1 with the starting positions that each fragment would have in 
+        the final text, effectively providing the delimiting positions that separate the fragments. The last value indicates 
+        the total length of the text.
         Cached for efficiency, must remember to invalidate when fragments are added or removed!
         
         TODO: consider indexing in a nice tree for better update times.
     """
-    return list(accumulate(map(lambda f: len(f.data), story.fragments)))
+    return list(accumulate([len(f.data) for f in story.fragments], initial=0))
 
-def position_to_fragment(story: "Story", absolute_position: int) -> (int, int):
+@lru_cache(maxsize=1)
+def get_fragment_heights(story: "Story") -> List[int]:
+    """
+        Given a Story with Fragments, returns a list with the starting number of the line that 
+        each fragment would correspond to in the final text. Like with get_fragment_delimiters, 
+        the last value indicates the total number of lines in the text.
+        Cached for efficiency, must remember to invalidate when fragments are added or removed!
+        
+        TODO: consider indexing in a nice tree for better update times.
+    """
+    return list(accumulate([f.data.count("\n") for f in story.fragments], initial=0))
+
+def position_to_fragment(story: "Story", absolute_position: int, 
+    get_data: Callable[["Story"], List[int]] = get_fragment_delimiters) -> (int, int):
     """
         Given a position in the final text, return a pair of (fragment_number, relative_position), 
         the first element being the number of the fragment that would contain that final position, 
         while the second element is the equivalent relative position inside the mentioned fragment.
         When the position is at the end of the final text, (len(story.fragments),0) is returned.
+        
+        By default it works over the position index. If, for example, one would like to return the 
+        fragment number for an absolute text height, then get_fragment_heights should be passed in get_data.
     """
     if absolute_position < 0:
         raise ValueError(f"Supplied a negative absolute position {absolute_position}")
     
-    fragment_delimiters: List[int] = get_fragment_delimiters(story)
+    fragment_delimiters: List[int] = get_data(story)
     
     """
         In practice, most of the displaying and editing will be performed close to the end of the text.
@@ -59,22 +76,25 @@ def position_to_fragment(story: "Story", absolute_position: int) -> (int, int):
         fragments instead of the start (leftmost) ones.
     """
     search_from_end: bool = len(fragment_delimiters) > 0 and absolute_position >= fragment_delimiters[len(fragment_delimiters)//2]
-    fragment_number: int = exponential_search(fragment_delimiters, absolute_position, from_end=search_from_end)
-    fragment_start: int = 0 if fragment_number == 0 else fragment_delimiters[fragment_number-1]
-    relative_position: int = 0 if fragment_number >= len(fragment_delimiters) else absolute_position - fragment_start
+    fragment_number: int = max(0, exponential_search(fragment_delimiters, absolute_position, from_end=search_from_end)-1)
+    fragment_start: int = fragment_delimiters[fragment_number]
+    relative_position: int = 0 if fragment_number >= len(story.fragments) else absolute_position - fragment_start
     return (fragment_number, relative_position)
 
-def fragment_to_position(story: "Story", fragment_number: int) -> int:
+def fragment_to_position(story: "Story", fragment_number: int, get_data: Callable[["Story"], List[int]] = get_fragment_delimiters) -> int:
     """
         For a fragment number, returns the starting position in the final text.
+        
+        By default it works over the position index. If, for example, one would like to return the 
+        height of a fragment, then get_fragment_heights should be passed in get_data.
     """
-    fragment_delimiters: List[int] = get_fragment_delimiters(story)
+    fragment_delimiters: List[int] = get_data(story)
     
-    if fragment_number >= len(fragment_delimiters):
+    if fragment_number >= len(story.fragments):
         # for consistency with position_to_fragment
         return fragment_delimiters[-1]
     
-    return fragment_delimiters[fragment_number] - len(story.fragments[fragment_number].data)
+    return fragment_delimiters[fragment_number]
 
 def apply_datablock(story: "Story", block: "Datablock") -> "Story":
     """ 
@@ -113,6 +133,7 @@ def apply_datablock(story: "Story", block: "Datablock") -> "Story":
         fragments[start_fragment_number:end_fragment_number+1] = [new_start_fragment, block.dataFragment, new_end_fragment]
     
     get_fragment_delimiters.cache_clear()
+    get_fragment_heights.cache_clear()
     return story
 
 def append_datablock(story: "Story", block: "Datablock") -> None:

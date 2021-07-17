@@ -53,13 +53,15 @@ def test_get_fragment_delimiters(story):
     
     # evaluaute two times to fully test cache
     for _ in range(2):
-        end = 0
+        position = 0
         fragment_delimiters = get_fragment_delimiters(story)
-        assert len(fragments) == len(fragment_delimiters)
+        assert len(fragments)+1 == len(fragment_delimiters)
     
-        for fragment_end, fragment in zip(fragment_delimiters, fragments):
-            end += len(fragment.data)
-            assert fragment_end == end
+        for fragment_start, fragment in zip(fragment_delimiters[:-1], fragments):
+            assert fragment_start == position
+            position += len(fragment.data)
+        
+        assert position == fragment_delimiters[-1]
 
 def _test_position_to_fragment(story, full_text, position):
     fragments = story.fragments
@@ -97,6 +99,7 @@ def test_position_to_empty_fragments(empty_story):
     test_position_to_fragment(empty_story, "")
 
 @given(integers(min_value=0, max_value=40))
+@settings(max_examples=6) # no need for a very exhaustive test
 def test_position_around_delimiters(story, full_text, i):
     fragment_delimiters = get_fragment_delimiters(story)
     assume(i < len(fragment_delimiters))
@@ -114,7 +117,7 @@ def test_fragment_to_position(story):
     assert fragment_to_position(story, len(fragments)) == fragment_delimiters[-1]
     assert fragment_to_position(story, len(fragments)+1) == fragment_delimiters[-1]
     
-    for fragment_number in range(len(fragment_delimiters)):
+    for fragment_number in range(len(fragments)):
         i = fragment_number
         while i < len(fragments) and len(fragments[i].data) == 0: i += 1
         if i >= len(fragments): i == -1
