@@ -2,6 +2,7 @@ import json
 from typing import List, Iterator, Optional, Callable
 from functools import reduce, lru_cache, partial
 from itertools import accumulate
+from operator import gt
 
 from .util import *
 from .story_model import *
@@ -55,7 +56,7 @@ def get_fragment_heights(story: "Story") -> List[int]:
     return list(accumulate([f.data.count("\n") for f in story.fragments], initial=0))
 
 def position_to_fragment(story: "Story", absolute_position: int, 
-    get_data: Callable[["Story"], List[int]] = get_fragment_delimiters) -> (int, int):
+    get_data: Callable[["Story"], List[int]] = get_fragment_delimiters, comparator=gt) -> (int, int):
     """
         Given a position in the final text, return a pair of (fragment_number, relative_position), 
         the first element being the number of the fragment that would contain that final position, 
@@ -65,9 +66,6 @@ def position_to_fragment(story: "Story", absolute_position: int,
         By default it works over the position index. If, for example, one would like to return the 
         fragment number for an absolute text height, then get_fragment_heights should be passed in get_data.
     """
-    if absolute_position < 0:
-        raise ValueError(f"Supplied a negative absolute position {absolute_position}")
-    
     fragment_delimiters: List[int] = get_data(story)
     
     """
@@ -76,7 +74,8 @@ def position_to_fragment(story: "Story", absolute_position: int,
         fragments instead of the start (leftmost) ones.
     """
     search_from_end: bool = len(fragment_delimiters) > 0 and absolute_position >= fragment_delimiters[len(fragment_delimiters)//2]
-    fragment_number: int = max(0, exponential_search(fragment_delimiters, absolute_position, from_end=search_from_end)-1)
+    fragment_number: int = 0
+    fragment_number = max(0, exponential_search(fragment_delimiters, absolute_position, comparator=comparator, from_end=search_from_end)-1)
     fragment_start: int = fragment_delimiters[fragment_number]
     relative_position: int = 0 if fragment_number >= len(story.fragments) else absolute_position - fragment_start
     return (fragment_number, relative_position)

@@ -1,4 +1,7 @@
+from typing import List, Tuple
 from itertools import accumulate
+from functools import reduce, lru_cache, partial
+from operator import ge
 
 from prompt_toolkit.layout import UIControl, UIContent
 from prompt_toolkit.formatted_text import (
@@ -6,6 +9,7 @@ from prompt_toolkit.formatted_text import (
     StyleAndTextTuples,
     to_formatted_text,
 )
+from prompt_toolkit.formatted_text.base import OneStyleAndTextTuple
 
 from .story_model import *
 from .story import *
@@ -24,29 +28,38 @@ class StoryControl(UIControl):
         return None
     
     def create_content(self, width: int, height: int) -> "UIContent":
-        newlines_per_fragment = list([f.data.count("\n") for f in self.story.fragments])
-        startlines_fragment = list(accumulate(newlines_per_fragment, initial=0))
+        fragment_heights: List[int] = get_fragment_heights(self.story)
+        
+        @lru_cache(maxsize=1)
+        def _split_text(text: str) -> List[str]:
+            return text.split("\n")
+        
+        def _get_tuple_from_fragment(fragment_number: int, relative_line: int) -> Tuple[OneStyleAndTextTuple, bool]:
+            fragment_newlines: int = fragment_heights[fragment_number+1] - fragment_heights[fragment_number]
+            could_be_more: bool = relative_line == fragment_newlines and fragment_number < len(self.story.fragments)-1
+            fragment: "Fragment" = self.story.fragments[fragment_number]
+            
+            if fragment_newlines > 0:
+                return (("", _split_text(fragment.data)[relative_line]), could_be_more)
+            else:
+                return (("", fragment.data), could_be_more)
         
         def get_line(i: int) -> StyleAndTextTuples:
-            fragment_number = max(next((number for number,lines in enumerate(startlines_fragment) if lines >= i))-1, 0)
-            fragment = self.story.fragments[fragment_number]
-            start_line = startlines_fragment[fragment_number]
-            fragment_lines = fragment.data.split("\n")
-            fl_position = i-start_line
-            line_fragments = [("", fragment_lines[fl_position])]
+            fragment_number, relative_line = position_to_fragment(self.story, i, get_fragment_heights, comparator=ge)
+            line_fragments: StyleAndTextTuples = []
+            could_be_more: bool = True
             
-            while fl_position == len(fragment_lines)-1 and fragment_number < len(self.story.fragments)-1:
-                fl_position = 0
+            while could_be_more:
+                line_fragment, could_be_more = _get_tuple_from_fragment(fragment_number, relative_line)
+                line_fragments.append(line_fragment)
                 fragment_number += 1
-                fragment = self.story.fragments[fragment_number]
-                fragment_lines = fragment.data.split("\n")
-                line_fragments.append(("", fragment_lines[fl_position]))
+                relative_line = 0
             
             return line_fragments
         
         return UIContent(
             get_line=get_line,
-            line_count=startlines_fragment[-1]+1
+            line_count=fragment_heights[-1]+1
         )
 
     def benchmark(self, n=1000) -> float:

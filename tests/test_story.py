@@ -83,20 +83,18 @@ def _test_position_to_fragment(story, full_text, position):
     fragments = story.fragments
     assert len(fragments) > 0
     
-    if position < 0:
-        with pytest.raises(ValueError):
-            position_to_fragment(story, position)
+    (fragment_number, relative_position) = position_to_fragment(story, position)
+    
+    if position >= len(full_text):
+        assert (fragment_number, relative_position) == (len(fragments),0)
+    elif position < 0:
+        assert fragment_number == 0
     else:
-        (fragment_number, relative_position) = position_to_fragment(story, position)
-        
-        if position >= len(full_text):
-            assert (fragment_number, relative_position) == (len(fragments),0)
-        else:
-            assert fragment_number >= 0
-            fragment_text = fragments[fragment_number].data
-            assert len(fragment_text) > 0
-            assert 0 <= relative_position < len(fragment_text)
-            assert full_text[position:].startswith(fragments[fragment_number].data[relative_position:])
+        assert fragment_number >= 0
+        fragment_text = fragments[fragment_number].data
+        assert len(fragment_text) > 0
+        assert 0 <= relative_position < len(fragment_text)
+        assert full_text[position:].startswith(fragments[fragment_number].data[relative_position:])
 
 def test_position_to_fragment(story, full_text):
     _test_position_to_fragment(story, full_text, 0)
