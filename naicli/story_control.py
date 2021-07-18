@@ -22,7 +22,7 @@ colors = {
     Origin.root: "",
     Origin.prompt: "#ffcc00",
     Origin.ai: "",
-    Origin.edit: "#ff0066",
+    Origin.edit: "#ff5566",
     Origin.user: "#66ffff"
 }
 
