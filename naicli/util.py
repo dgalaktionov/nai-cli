@@ -10,6 +10,16 @@ def join_strings(*strings: str) -> str:
     else:
         return "".join(strings)
 
+def find_nth(s, x, n=0, overlap=False):
+    # shamelessly copied from Stefan in https://stackoverflow.com/a/23479065
+    l = 1 if overlap else len(x)
+    i = -l
+    for c in range(n + 1):
+        i = s.find(x, i + l)
+        if i < 0:
+            break
+    return i
+
 T = TypeVar("T")
 def exponential_search(array: Sequence[T], value: T, comparator=gt, from_end = False):
     """

@@ -26,4 +26,4 @@ def launch_editor(story: "Story") -> None:
     layout = Layout(Window(content=sc, wrap_lines=True))
     app = Application(layout=layout, key_bindings=kb, full_screen=True)
     app.run()
-    print(sc.benchmark())
+    
