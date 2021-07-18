@@ -13,7 +13,7 @@ setup(
     author='dagal',
     url='',
     packages=find_packages(include=['naicli']),
-    install_requires=['click>=8.0.0', 'prompt-toolkit>=3.0.0'],
+    install_requires=['click>=8.0.0', 'prompt-toolkit>=3.0.0', 'pygments>=2.0.0'],
     entry_points={'console_scripts': ['nai-cli = naicli.main:main']},
     tests_require=['pytest', 'hypothesis']
 )
