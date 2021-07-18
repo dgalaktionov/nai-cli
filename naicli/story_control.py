@@ -32,13 +32,15 @@ class StoryControl(UIControl):
         self,
         story: "Story",
     ):
-        self.story = story
+        self.story: "Story" = story
         
         # deprecated for now
-        self.cursor_fragment_number = -1
-        self.cursor_relative_position = -1
+        self.cursor_fragment_number: int = -1
+        self.cursor_relative_position: int = -1
+        #self.cursor_position: Point = Point(0,1)
         
-        self.cursor_position = Point(0,1)
+        self.on_cursor_position_changed: Event["StoryControl"] = Event(self)
+        self.content: UIContent = None
 
     def is_focusable(self) -> bool:
         return True
@@ -47,11 +49,10 @@ class StoryControl(UIControl):
         return None
     
     def create_content(self, width: int, height: int) -> "UIContent":
+        if self.content:
+            return self.content
+            
         fragment_heights: List[int] = get_fragment_heights(self.story)
-        
-        @lru_cache(maxsize=100)
-        def _split_text(text: str) -> List[str]:
-            return text.split("\n")
         
         def _get_cursor_position_legacy() -> Point:
             start_line: int = fragment_heights[self.cursor_fragment_number]
@@ -83,10 +84,11 @@ class StoryControl(UIControl):
             fragment_color = colors[fragment.origin]
             
             if fragment_newlines > 0:
-                return ((fragment_color, _split_text(fragment.data)[relative_line]), could_be_more)
+                return ((fragment_color, split_text(fragment.data)[relative_line]), could_be_more)
             else:
                 return ((fragment_color, fragment.data), could_be_more)
         
+        @lru_cache(maxsize=256)
         def get_line(i: int) -> StyleAndTextTuples:
             fragment_number, relative_line = line_to_fragment(self.story, i)
             line_fragments: StyleAndTextTuples = []
@@ -100,21 +102,37 @@ class StoryControl(UIControl):
             
             return line_fragments
         
-        return UIContent(
+        self.content = UIContent(
             get_line=get_line,
             line_count=fragment_heights[-1]+1,
-            cursor_position=self.cursor_position
+            cursor_position=Point(0,1)
         )
+        
+        return self.content
     
-    def move_cursor_down(self) -> None:
-        x,y = self.cursor_position
-        y = max(get_fragment_heights(self.story), y+1)
-        self.cursor_position = Point(x,y+1)
+    def move_cursor_right(self, by=1) -> None:
+        x,y = self.content.cursor_position
+        x += by
+        self.content.cursor_position = Point(x,y)
+        #self.on_cursor_position_changed.fire()
+    
+    def move_cursor_left(self, by=1) -> None:
+        x,y = self.content.cursor_position
+        x = max(0, x-by)
+        #self.content.cursor_position = Point(x,y)
+        #self.on_cursor_position_changed.fire()
+    
+    def move_cursor_down(self, by=1) -> None:
+        x,y = self.content.cursor_position
+        y = min(get_fragment_heights(self.story)[-1], y+by)
+        self.content.cursor_position = Point(x,y)
+        #self.on_cursor_position_changed.fire()
 
-    def move_cursor_up(self) -> None:
-        x,y = self.cursor_position
-        y = min(0,y-1)
-        self.cursor_position = Point(x,y-1)
+    def move_cursor_up(self, by=1) -> None:
+        x,y = self.content.cursor_position
+        y = max(0,y-by)
+        self.content.cursor_position = Point(x,y)
+        #self.on_cursor_position_changed.fire()
 
     def benchmark(self, n=1000) -> float:
         from timeit import timeit

@@ -1,5 +1,6 @@
-from typing import TypeVar, Sequence, Callable, Optional
+from typing import List, TypeVar, Sequence, Callable, Optional
 from operator import gt
+from functools import lru_cache
 
 def join_strings(*strings: str) -> str:
     # when there's only a few of them, it's faster with fstrings (tested on Python 3.9)
@@ -19,6 +20,10 @@ def find_nth(s, x, n=0, overlap=False):
         if i < 0:
             break
     return i
+
+@lru_cache(maxsize=256)
+def split_text(text: str) -> List[str]:
+    return text.split("\n")
 
 T = TypeVar("T")
 def exponential_search(array: Sequence[T], value: T, comparator=gt, from_end = False):
