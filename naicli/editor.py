@@ -45,6 +45,6 @@ def cursor_down(event):
 def launch_editor(story: "Story") -> None:
     sc = StoryControl(story=story)
     layout = Layout(Window(content=sc, wrap_lines=True))
-    app = Application(layout=layout, key_bindings=kb, full_screen=True)
+    app = Application(layout=layout, key_bindings=kb, full_screen=True, min_redraw_interval=1.0)
     app.run()
     

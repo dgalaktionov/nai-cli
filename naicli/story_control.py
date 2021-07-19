@@ -119,7 +119,7 @@ class StoryControl(UIControl):
     def move_cursor_left(self, by=1) -> None:
         x,y = self.content.cursor_position
         x = max(0, x-by)
-        #self.content.cursor_position = Point(x,y)
+        self.content.cursor_position = Point(x,y)
         #self.on_cursor_position_changed.fire()
     
     def move_cursor_down(self, by=1) -> None:
