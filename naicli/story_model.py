@@ -292,7 +292,7 @@ class Parameters:
     maxlength: int
     minlength: int
     prefix: Optional[str]
-    repetitionpenalty: int
+    repetitionpenalty: float
     repetitionpenaltyrange: int
     repetitionpenaltyslope: float
     tailfreesampling: float
@@ -300,7 +300,7 @@ class Parameters:
     topk: int
     topp: float
 
-    def __init__(self, badwordsids: List[List[int]], maxlength: int, minlength: int, prefix: Optional[str], repetitionpenalty: int, repetitionpenaltyrange: int, repetitionpenaltyslope: float, tailfreesampling: float, temperature: float, topk: int, topp: float) -> None:
+    def __init__(self, badwordsids: List[List[int]], maxlength: int, minlength: int, prefix: Optional[str], repetitionpenalty: float, repetitionpenaltyrange: int, repetitionpenaltyslope: float, tailfreesampling: float, temperature: float, topk: int, topp: float) -> None:
         self.badwordsids = badwordsids
         self.maxlength = maxlength
         self.minlength = minlength
@@ -320,7 +320,7 @@ class Parameters:
         maxlength = from_int(obj.get("max_length"))
         minlength = from_int(obj.get("min_length"))
         prefix = from_union([from_str, from_none], obj.get("prefix"))
-        repetitionpenalty = from_int(obj.get("repetition_penalty"))
+        repetitionpenalty = from_float(obj.get("repetition_penalty"))
         repetitionpenaltyrange = from_int(obj.get("repetition_penalty_range"))
         repetitionpenaltyslope = from_float(obj.get("repetition_penalty_slope"))
         tailfreesampling = from_float(obj.get("tail_free_sampling"))
@@ -335,7 +335,7 @@ class Parameters:
         result["max_length"] = from_int(self.maxlength)
         result["min_length"] = from_int(self.minlength)
         result["prefix"] = from_union([from_str, from_none], self.prefix)
-        result["repetition_penalty"] = from_int(self.repetitionpenalty)
+        result["repetition_penalty"] = to_float(self.repetitionpenalty)
         result["repetition_penalty_range"] = from_int(self.repetitionpenaltyrange)
         result["repetition_penalty_slope"] = to_float(self.repetitionpenaltyslope)
         result["tail_free_sampling"] = to_float(self.tailfreesampling)
