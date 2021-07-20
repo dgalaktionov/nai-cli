@@ -5,6 +5,14 @@ from typing import List,Tuple
 from .story_model import *
 from .story import *
 
+origin_colors = {
+    Origin.root: 1,
+    Origin.ai: 1,
+    Origin.prompt: 2,
+    Origin.edit: 3,
+    Origin.user: 4,
+}
+
 class StoryEditor():
     def __init__(
         self,
@@ -19,6 +27,7 @@ class StoryEditor():
     
     def run(self, stdscr):
         self.stdscr = stdscr
+        self.init_colors()
         self.displayable_fragments = self.get_displayable_fragments(stdscr.getmaxyx()[0])
         self.display_on_screen()
         
@@ -27,6 +36,17 @@ class StoryEditor():
             
             if c == ord("q"):
                 break
+    
+    def init_colors(self):
+        curses.start_color()
+        curses.use_default_colors()
+        
+        curses.init_pair(origin_colors[Origin.root], curses.COLOR_WHITE, curses.COLOR_BLACK)
+        curses.init_pair(origin_colors[Origin.ai], curses.COLOR_WHITE, curses.COLOR_BLACK)
+        curses.init_pair(origin_colors[Origin.prompt], curses.COLOR_YELLOW, -1)
+        curses.init_pair(origin_colors[Origin.edit], curses.COLOR_MAGENTA, -1)
+        curses.init_pair(origin_colors[Origin.user], curses.COLOR_CYAN, -1)
+        self.stdscr.bkgd("\0", curses.color_pair(origin_colors[Origin.root]))
     
     def get_displayable_fragments(self, height: int) -> List["Fragment"]:
         self.start_fragment_number: int = max(0, line_to_fragment(self.story, self.cursor_line-height)[0])
@@ -64,8 +84,8 @@ class StoryEditor():
                     xpos = xpos%width
                 
                 if ypos < 0: break
-                print(ypos, xpos, line)
-                self.stdscr.addstr(ypos, xpos, line)
+                #print(ypos, xpos, line)
+                self.stdscr.addstr(ypos, xpos, line, curses.color_pair(origin_colors[fragment.origin]))
             
             if ypos < 0:
                 break
@@ -92,4 +112,3 @@ class StoryEditor():
 def launch_editor(story: "Story") -> None:
     editor = StoryEditor(story)
     curses.wrapper(editor.run)
-    
