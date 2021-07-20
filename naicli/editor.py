@@ -20,7 +20,6 @@ class StoryEditor():
         story: "Story",
     ):
         self.story: "Story" = story
-        self.displayable_fragments: List["FragmentInfo"] = [] # initialize once we have a screen!
         self.cursor_fragment: int = len(story.fragments)
         self.cursor_line_in_fragment: int = 0
         self.cursor_position_in_line: int = 0
@@ -28,7 +27,7 @@ class StoryEditor():
     def run(self, stdscr):
         self.stdscr = stdscr
         self.init_colors()
-        self.displayable_fragments = self.get_displayable_fragments(stdscr.getmaxyx()[0])
+        get_fragment_infos(self.story.fragments)
         self.display_on_screen(self.get_top_screen_fragment())
         
         while True:
@@ -50,32 +49,19 @@ class StoryEditor():
         curses.init_pair(origin_colors[Origin.user], curses.COLOR_CYAN, -1)
         self.stdscr.bkgd("\0", curses.color_pair(origin_colors[Origin.root]) | curses.A_BOLD)
     
-    def get_displayable_fragments(self, height: int) -> List["FragmentInfo"]:
-        cursor_line: int = fragment_to_position(self.story, self.cursor_fragment, get_data=get_fragment_heights)
-        self.start_fragment_number: int = max(0, line_to_fragment(self.story, cursor_line-height)[0])
-        self.end_fragment_number: int = line_to_fragment(self.story, cursor_line+height)[0]
-        
-        return get_fragment_infos(self.story.fragments[self.start_fragment_number:self.end_fragment_number])
-    
     def get_top_screen_fragment(self) -> Tuple[int, int, int]:
         height, width = self.stdscr.getmaxyx()
         last_screen_fragment: int = self.cursor_fragment
-        
-        if not self.start_fragment_number <= last_screen_fragment <= self.end_fragment_number:
-            # update fragment cache
-            print("line cache miss!")
-            self.displayable_fragments = self.get_displayable_fragments(height)
-        
-        # figure out which of the cached fragments do we really need
-        last_screen_fragment -= self.start_fragment_number
-        first_screen_fragment: int = last_screen_fragment
-        ypos: int = height-1
+        first_screen_fragment: int = min(last_screen_fragment, len(self.story.fragments)-1)
+        ypos: int = height-1 # we're always assuming ypos is at the end for now
         xpos: int = width-1
         
         first_fragment_line: int = 0
         first_line_position: int = 0
         
-        for first_screen_fragment, fragment_info in reversed(list(enumerate(self.displayable_fragments[:last_screen_fragment]))):
+        fragment_info: "FragmentInfo" = get_fragment_info(self.story.fragments[first_screen_fragment])
+        
+        while fragment_info and ypos >= 0:
             first_fragment_line: int = fragment_info.height
             
             for line, length in reversed(list(enumerate(fragment_info.line_lengths))):
@@ -97,8 +83,10 @@ class StoryEditor():
                     first_line_position = -ypos*width
                     break
             
-            if ypos < 0:
-                break
+            fragment_info = fragment_info.prev
+            
+            if fragment_info and ypos >= 0:
+                first_screen_fragment -= 1
         
         return (first_screen_fragment, first_fragment_line, first_line_position)
     
@@ -131,7 +119,7 @@ class StoryEditor():
     
     def display_on_screen(self, start_at: Tuple[int, int, int] = (0,0,0)) -> None:
         first_screen_fragment, first_fragment_line, first_line_position = start_at
-        fragment_info: "FragmentInfo" = self.displayable_fragments[first_screen_fragment]
+        fragment_info: "FragmentInfo" = get_fragment_info(self.story.fragments[first_screen_fragment])
         self.stdscr.clear()
         self.stdscr.move(0,0)
         
