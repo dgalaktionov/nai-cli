@@ -46,7 +46,7 @@ class StoryEditor():
         curses.init_pair(origin_colors[Origin.prompt], curses.COLOR_YELLOW, -1)
         curses.init_pair(origin_colors[Origin.edit], curses.COLOR_MAGENTA, -1)
         curses.init_pair(origin_colors[Origin.user], curses.COLOR_CYAN, -1)
-        self.stdscr.bkgd("\0", curses.color_pair(origin_colors[Origin.root]))
+        self.stdscr.bkgd("\0", curses.color_pair(origin_colors[Origin.root]) | curses.A_BOLD)
     
     def get_displayable_fragments(self, height: int) -> List["Fragment"]:
         self.start_fragment_number: int = max(0, line_to_fragment(self.story, self.cursor_line-height)[0])
