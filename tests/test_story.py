@@ -47,6 +47,35 @@ def test_assemble_story(story, full_text):
         assert fragment.data == full_text[i:i+len(fragment.data)]
         i += len(fragment.data)
 
+def test_get_fragment_info(story):
+    for fragment in story.fragments:
+        fragment_info = get_fragment_info(fragment)
+        assert fragment_info.fragment == fragment
+        assert fragment_info.text_length == len(fragment.data)
+        assert fragment_info.height == fragment.data.count("\n")
+        assert len(fragment_info.line_lengths) == fragment_info.height+1
+        assert sum(fragment_info.line_lengths) + len(fragment_info.line_lengths) - 1 == fragment_info.text_length
+        
+        newline_pos = 0
+        for i,length in enumerate(fragment_info.line_lengths[:-1]):
+            newline_pos += length
+            assert newline_pos == fragment_info.find_nth_newline(i)
+            assert fragment.data[newline_pos] == "\n"
+            newline_pos += 1
+
+def test_get_fragment_infos(story):
+    # evaluaute two times to fully test cache
+    for _ in range(2):
+        prev = None
+        
+        for fragment,fragment_info in zip(story.fragments, get_fragment_infos(story.fragments)):
+            assert fragment == fragment_info.fragment
+            if prev: assert prev.next == fragment_info
+            assert fragment_info.prev == prev
+            prev = fragment_info
+        
+        assert prev.next == None
+
 def test_get_fragment_delimiters(story):
     fragments = story.fragments
     assert len(fragments) > 0
@@ -181,3 +210,4 @@ def test_insert_text(story_copy, new_text, start_position, end_position):
     story_text = assemble_story_fragments(story_copy.fragments)
     new_story_text = assemble_story_fragments(insert_text(story_copy, new_text, start_position, end_position).fragments)
     assert join_strings(story_text[:start_position], new_text, story_text [end_position:]) == new_story_text
+    test_get_fragment_infos(story_copy)

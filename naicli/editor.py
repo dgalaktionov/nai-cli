@@ -4,6 +4,7 @@ from typing import List,Tuple
 
 from .story_model import *
 from .story import *
+from .util import *
 
 origin_colors = {
     Origin.root: 1,
@@ -36,6 +37,8 @@ class StoryEditor():
             
             if c == ord("q"):
                 break
+        
+        print(self.benchmark())
     
     def init_colors(self):
         curses.start_color()
@@ -73,7 +76,7 @@ class StoryEditor():
         for fragment in reversed(self.displayable_fragments[:last_screen_fragment]):
             fragment_line_count: int = 0
             
-            for line in reversed(fragment.data.split("\n")):
+            for line in reversed(split_lines(fragment.data)):
                 if fragment_line_count > 0: ypos -= 1
                 if ypos < 0: break
                 fragment_line_count += 1
@@ -104,9 +107,11 @@ class StoryEditor():
     def move_cursor_up(self, by=1) -> None:
         pass
 
-    def benchmark(self, n=1000) -> float:
+    def benchmark(self, n=10000) -> float:
         from timeit import timeit
-        pass
+        height = self.stdscr.getmaxyx()[0]
+        #return timeit(lambda: self.get_displayable_fragments(height), number=n)
+        return timeit(lambda: self.display_on_screen(), number=n)/n
 
 
 def launch_editor(story: "Story") -> None:

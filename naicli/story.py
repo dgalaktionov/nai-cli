@@ -8,6 +8,41 @@ from bisect import bisect_right, bisect_left
 from .util import *
 from .story_model import *
 
+class FragmentInfo:
+    def __init__(self, fragment: "Fragment"):
+        self.fragment: "Fragment" = fragment
+        self.line_lengths: List[int] = [len(line) for line in fragment.data.split("\n")]
+        self.prev: "FragmentInfo" = None
+        self.next: "FragmentInfo" = None
+    
+    @property
+    def text_length(self) -> int:
+        return len(self.fragment.data)
+    
+    @property
+    def height(self) -> int:
+        return len(self.line_lengths)-1
+    
+    def find_nth_newline(self, i: int=0) -> int:
+        return sum(self.line_lengths[:i+1])+i
+
+@lru_cache(maxsize=None)
+def get_fragment_info(fragment: "Fragment") -> "FragmentInfo":
+    return FragmentInfo(fragment)
+
+def get_fragment_infos(fragments: List["FragmentInfo"]) -> List["FragmentInfo"]:
+    fragment_infos: List["FragmentInfo"] = [get_fragment_info(f) for f in fragments]
+    prev: "FragmentInfo" = None if len(fragment_infos) == 0 else fragment_infos[0]
+
+    if prev != None and prev.next == None:
+        # no linked structure, must populate!
+        for fi in fragment_infos[1:]:
+            prev.next = fi
+            fi.prev = prev
+            prev = fi
+    
+    return fragment_infos
+
 def open_story_file(path: str) -> "Book":
     sf = open(path, "r", encoding="utf-8")
     book = Bookfromdict(json.load(sf))
@@ -42,7 +77,7 @@ def get_fragment_delimiters(story: "Story") -> List[int]:
         
         TODO: consider indexing in a nice tree for better update times.
     """
-    return list(accumulate([len(f.data) for f in story.fragments], initial=0))
+    return list(accumulate([fi.text_length for fi in get_fragment_infos(story.fragments)], initial=0))
 
 @lru_cache(maxsize=1)
 def get_fragment_heights(story: "Story") -> List[int]:
@@ -54,7 +89,11 @@ def get_fragment_heights(story: "Story") -> List[int]:
         
         TODO: consider indexing in a nice tree for better update times.
     """
-    return list(accumulate([f.data.count("\n") for f in story.fragments], initial=0))
+    return list(accumulate([fi.height for fi in get_fragment_infos(story.fragments)], initial=0))
+
+def invalidate_caches():
+    get_fragment_delimiters.cache_clear()
+    get_fragment_heights.cache_clear()
 
 def position_to_fragment(story: "Story", absolute_position: int, 
     get_data: Callable[["Story"], List[int]] = get_fragment_delimiters, search_method=bisect_right) -> (int, int):
@@ -110,6 +149,7 @@ def apply_datablock(story: "Story", block: "Datablock") -> "Story":
         # append
         block.fragmentIndex = start_fragment_number if len(fragments) > 0 else -1
         fragments.append(block.dataFragment)
+        get_fragment_infos(fragments[-2:])
     else:
         # insert before the end
         end_fragment_number, end_relative_position = position_to_fragment(story, block.endIndex)
@@ -125,10 +165,18 @@ def apply_datablock(story: "Story", block: "Datablock") -> "Story":
         # i hate to do it the mutable way, but it is simply more efficient
         block.removedFragments = fragments[start_fragment_number:end_fragment_number+1]
         block.fragmentIndex = start_fragment_number+1
-        fragments[start_fragment_number:end_fragment_number+1] = [new_start_fragment, block.dataFragment, new_end_fragment]
+        inserted_fragments = [new_start_fragment, block.dataFragment, new_end_fragment]
+        fragments[start_fragment_number:end_fragment_number+1] = inserted_fragments
+        
+        # update linked list structures
+        start_info, end_info = get_fragment_info(start_fragment), get_fragment_info(end_fragment)
+        [new_start_info,_,new_end_info] = get_fragment_infos(inserted_fragments)
+        new_start_info.prev = start_info.prev
+        new_end_info.next = end_info.next
+        if new_start_info.prev: start_info.prev.next = new_start_info
+        if new_end_info.next: end_info.next.prev = new_end_info
     
-    get_fragment_delimiters.cache_clear()
-    get_fragment_heights.cache_clear()
+    invalidate_caches()
     return story
 
 def append_datablock(story: "Story", block: "Datablock") -> None:

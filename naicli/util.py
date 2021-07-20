@@ -21,8 +21,8 @@ def find_nth(s, x, n=0, overlap=False):
             break
     return i
 
-@lru_cache(maxsize=256)
-def split_text(text: str) -> List[str]:
+@lru_cache(maxsize=1024)
+def split_lines(text: str) -> List[str]:
     return text.split("\n")
 
 T = TypeVar("T")
