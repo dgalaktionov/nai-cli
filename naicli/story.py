@@ -1,5 +1,5 @@
 import json
-from typing import List, Iterator, Optional, Callable
+from typing import List, Iterator, Optional, Callable, Tuple
 from functools import reduce, lru_cache, partial
 from itertools import accumulate
 from operator import gt
@@ -12,6 +12,9 @@ class FragmentInfo:
     def __init__(self, fragment: "Fragment"):
         self.fragment: "Fragment" = fragment
         self.line_lengths: List[int] = [len(line) for line in fragment.data.split("\n")]
+        #self.line_positions = list(accumulate([length for length in self.line_lengths], initial=0))
+        self.line_positions = list(accumulate([length+1 for length in self.line_lengths], initial=0))
+        self.line_positions[-1] -= 1
         self.prev: "FragmentInfo" = None
         self.next: "FragmentInfo" = None
     
@@ -23,8 +26,12 @@ class FragmentInfo:
     def height(self) -> int:
         return len(self.line_lengths)-1
     
-    def find_nth_newline(self, i: int=0) -> int:
-        return sum(self.line_lengths[:i+1])+i
+    def line_to_pos(self, line: int=0) -> int:
+        return self.line_positions[line]
+    
+    def pos_to_line(self, pos: int=0) -> Tuple[int,int]:
+        line_number = max(0, next((i for i,l in enumerate(self.line_positions) if l > pos), len(self.line_lengths))-1)
+        return (line_number, pos - self.line_to_pos(line_number)) 
 
 @lru_cache(maxsize=None)
 def get_fragment_info(fragment: "Fragment") -> "FragmentInfo":

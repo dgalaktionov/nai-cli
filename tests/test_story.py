@@ -10,7 +10,7 @@ from copy import deepcopy
 
 @pytest.fixture(scope="module")
 def book():
-    return open_story_file("example/grug.story")
+    return open_story_file("../queen.story")
 
 @pytest.fixture(scope="module")
 def full_text(book):
@@ -57,11 +57,19 @@ def test_get_fragment_info(story):
         assert sum(fragment_info.line_lengths) + len(fragment_info.line_lengths) - 1 == fragment_info.text_length
         
         newline_pos = 0
-        for i,length in enumerate(fragment_info.line_lengths[:-1]):
+        for i,length in enumerate(fragment_info.line_lengths):
+            assert newline_pos == fragment_info.line_to_pos(i)
+            assert (i, 0) == fragment_info.pos_to_line(newline_pos)
+            
+            if length > 0: 
+                assert (i, length) == fragment_info.pos_to_line(newline_pos+length)
+                if i < fragment_info.height: assert (i+1, 0) == fragment_info.pos_to_line(newline_pos+length+1)
+            
             newline_pos += length
-            assert newline_pos == fragment_info.find_nth_newline(i)
-            assert fragment.data[newline_pos] == "\n"
+            if 0 < i < fragment_info.height: assert fragment.data[newline_pos] == "\n"
             newline_pos += 1
+        
+        assert newline_pos-1 == fragment_info.text_length == fragment_info.line_to_pos(fragment_info.height+1)
 
 def test_get_fragment_infos(story):
     # evaluaute two times to fully test cache

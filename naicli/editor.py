@@ -20,17 +20,16 @@ class StoryEditor():
         story: "Story",
     ):
         self.story: "Story" = story
-        self.fragment_heights: List[int] = get_fragment_heights(self.story)
-        self.max_line: int = self.fragment_heights[-1]+1
-        self.cursor_line: int = self.max_line
-        self.cursor_position_in_line: int = max(0, len(self.story.fragments[-1].data.split("\n")[-1])-1)
-        self.displayable_fragments: List["Fragment"] = [] # initialize once we have a screen!
+        self.displayable_fragments: List["FragmentInfo"] = [] # initialize once we have a screen!
+        self.cursor_fragment: int = 0#len(story.fragments)
+        self.cursor_line_in_fragment: int = 0
+        self.cursor_position_in_line: int = 0
     
     def run(self, stdscr):
         self.stdscr = stdscr
         self.init_colors()
         self.displayable_fragments = self.get_displayable_fragments(stdscr.getmaxyx()[0])
-        self.display_on_screen()
+        self.display_on_screen(self.get_top_screen_fragment())
         
         while True:
             c = stdscr.getch()
@@ -38,7 +37,7 @@ class StoryEditor():
             if c == ord("q"):
                 break
         
-        print(self.benchmark())
+        #print(self.benchmark())
     
     def init_colors(self):
         curses.start_color()
@@ -51,49 +50,96 @@ class StoryEditor():
         curses.init_pair(origin_colors[Origin.user], curses.COLOR_CYAN, -1)
         self.stdscr.bkgd("\0", curses.color_pair(origin_colors[Origin.root]) | curses.A_BOLD)
     
-    def get_displayable_fragments(self, height: int) -> List["Fragment"]:
-        self.start_fragment_number: int = max(0, line_to_fragment(self.story, self.cursor_line-height)[0])
-        self.end_fragment_number: int = line_to_fragment(self.story, self.cursor_line+height)[0]
+    def get_displayable_fragments(self, height: int) -> List["FragmentInfo"]:
+        cursor_line: int = fragment_to_position(self.story, self.cursor_fragment, get_data=get_fragment_heights)
+        self.start_fragment_number: int = max(0, line_to_fragment(self.story, cursor_line-height)[0])
+        self.end_fragment_number: int = line_to_fragment(self.story, cursor_line+height)[0]
         
-        return self.story.fragments[self.start_fragment_number:self.end_fragment_number]
+        return get_fragment_infos(self.story.fragments[self.start_fragment_number:self.end_fragment_number])
     
-    def display_on_screen(self) -> None:
+    def get_top_screen_fragment(self) -> Tuple[int, int, int]:
         height, width = self.stdscr.getmaxyx()
-        fragment_number, relative_position = line_to_fragment(self.story, self.cursor_line)
+        last_screen_fragment: int = self.cursor_fragment
         
-        if not self.start_fragment_number <= fragment_number <= self.end_fragment_number:
+        if not self.start_fragment_number <= last_screen_fragment <= self.end_fragment_number:
             # update fragment cache
+            print("line cache miss!")
             self.displayable_fragments = self.get_displayable_fragments(height)
         
         # figure out which of the cached fragments do we really need
-        fragment_number -= self.start_fragment_number
-        first_screen_fragment = last_screen_fragment = fragment_number
-        ypos = height-1
-        xpos = width-1
-        self.stdscr.clear()
-        #self.stdscr.move(ypos,xpos)
+        last_screen_fragment -= self.start_fragment_number
+        first_screen_fragment: int = last_screen_fragment
+        ypos: int = height-1
+        xpos: int = width-1
         
-        for fragment in reversed(self.displayable_fragments[:last_screen_fragment]):
-            fragment_line_count: int = 0
+        first_fragment_line: int = 0
+        first_line_position: int = 0
+        
+        for first_screen_fragment, fragment_info in reversed(list(enumerate(self.displayable_fragments[:last_screen_fragment]))):
+            first_fragment_line: int = fragment_info.height
             
-            for line in reversed(split_lines(fragment.data)):
-                if fragment_line_count > 0: ypos -= 1
+            for line, length in reversed(list(enumerate(fragment_info.line_lengths))):
+                if first_screen_fragment == last_screen_fragment and line > self.cursor_line_in_fragment: continue
+                
+                if line < fragment_info.height: 
+                    ypos -= 1
+                    xpos = width-1
+                
                 if ypos < 0: break
-                fragment_line_count += 1
-                xpos -= len(line)
+                first_fragment_line = line
+                xpos -= length
                 
                 if xpos < 0:
                     ypos += xpos//width
                     xpos = xpos%width
                 
-                if ypos < 0: break
-                #print(ypos, xpos, line)
-                self.stdscr.addstr(ypos, xpos, line, curses.color_pair(origin_colors[fragment.origin]))
+                if ypos < 0: 
+                    first_line_position = -ypos*width
+                    break
             
             if ypos < 0:
                 break
         
-        self.stdscr.move(height-1, width-1)
+        return (first_screen_fragment, first_fragment_line, first_line_position)
+    
+    def get_remaining_screen_space(self) -> int:
+        height, width = self.stdscr.getmaxyx()
+        y, x = self.stdscr.getyx()
+        return width*(height-y) - x - 1
+    
+    def display_fragment(self, fragment_info: "FragmentInfo", start_at: int = 0) -> bool:
+        fragment: "Fragment" = fragment_info.fragment
+        attr: int = curses.color_pair(origin_colors[fragment.origin]) | curses.A_BOLD
+        text: str = fragment.data if start_at == 0 else fragment.data[start_at:]
+    
+        if fragment_info.height > 0:
+            for line_number, line in enumerate(split_lines(text)):
+                if line_number > 0:
+                    if self.stdscr.getyx()[0] >= self.stdscr.getmaxyx()[0]-1:
+                        # we need a newline but we ran out of vertical space!
+                        return False
+                    
+                    self.stdscr.addch("\n")
+                
+                self.stdscr.addnstr(line, self.get_remaining_screen_space(), attr)
+                
+                
+        else:
+            self.stdscr.addnstr(text, self.get_remaining_screen_space(), attr)
+        
+        return self.get_remaining_screen_space() > 0
+    
+    def display_on_screen(self, start_at: Tuple[int, int, int] = (0,0,0)) -> None:
+        first_screen_fragment, first_fragment_line, first_line_position = start_at
+        fragment_info: "FragmentInfo" = self.displayable_fragments[first_screen_fragment]
+        self.stdscr.clear()
+        self.stdscr.move(0,0)
+        
+        first_offset: int = fragment_info.line_to_pos(first_fragment_line)+first_line_position
+        
+        while self.display_fragment(fragment_info, first_offset) and fragment_info.next:
+            first_offset = 0
+            fragment_info = fragment_info.next
     
     def move_cursor_right(self, by=1) -> None:
         pass
