@@ -123,9 +123,6 @@ def apply_datablock(story: "Story", block: "Datablock") -> "Story":
         new_end_fragment = Fragment(data=end_fragment.data[end_relative_position:], origin=end_fragment.origin)
         
         # i hate to do it the mutable way, but it is simply more efficient
-        if start_fragment == end_fragment: end_relative_position -= start_relative_position
-        start_fragment.data = start_fragment.data[start_relative_position:]
-        end_fragment.data = end_fragment.data[:end_relative_position]
         block.removedFragments = fragments[start_fragment_number:end_fragment_number+1]
         block.fragmentIndex = start_fragment_number+1
         fragments[start_fragment_number:end_fragment_number+1] = [new_start_fragment, block.dataFragment, new_end_fragment]
