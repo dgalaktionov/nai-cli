@@ -21,7 +21,7 @@ class StoryEditor():
     ):
         self.story: "Story" = story
         self.displayable_fragments: List["FragmentInfo"] = [] # initialize once we have a screen!
-        self.cursor_fragment: int = 0#len(story.fragments)
+        self.cursor_fragment: int = len(story.fragments)
         self.cursor_line_in_fragment: int = 0
         self.cursor_position_in_line: int = 0
     
@@ -157,7 +157,8 @@ class StoryEditor():
         from timeit import timeit
         height = self.stdscr.getmaxyx()[0]
         #return timeit(lambda: self.get_displayable_fragments(height), number=n)
-        return timeit(lambda: self.display_on_screen(), number=n)/n
+        #return timeit(lambda: self.display_on_screen(), number=n)/n
+        return timeit(lambda: self.display_on_screen(self.get_top_screen_fragment()), number=n)/n
 
 
 def launch_editor(story: "Story") -> None:
