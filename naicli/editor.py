@@ -6,6 +6,8 @@ from .story_model import *
 from .story import *
 from .util import *
 
+ScreenCoordinates = NewType("ScreenCoordinates", Tuple[int,int])
+LineCoordinates = NewType("LineCoordinates", Tuple[int,int])
 StyledChunk = NewType("StyledChunk", Tuple[str,int])
 StyledLine = NewType("StyledLine", List[StyledChunk])
 
@@ -21,19 +23,20 @@ class Editor():
     def __init__(
         self
     ):
-        self.cursor_line: int = 0
-        self.cursor_position_in_line: int = 0
-        self.screen_y, self.screen_x = 0,0
+        self.cursor_line: LineCoordinates = (0,0)
+        self.screen_line, self.screen_line_y = 0,0
+        self.running: bool = False
     
-    def run(self, stdscr):
+    def run(self, stdscr, listen_input: bool = True):
         self.stdscr = stdscr
+        curses.noecho()
+        curses.cbreak()
+        stdscr.keypad(True)
         stdscr.scrollok(True)
         self.init_colors()
         get_fragment_infos(self.story.fragments)
-        #self.display_on_screen(self.get_top_screen_fragment())
         self.display_lines()
         
-        self.quit_editor: bool = False
         event_handlers = {
             ord("q"): self.quit,
             curses.KEY_LEFT: self.move_cursor_left,
@@ -42,12 +45,18 @@ class Editor():
             curses.KEY_DOWN: self.move_cursor_down,
         }
         
-        while not self.quit_editor:
-            c = stdscr.getch()
-            if c in event_handlers: event_handlers[c]()
+        if listen_input:
+            self.running = True
+            while self.running:
+                c = stdscr.getch()
+                if c in event_handlers: event_handlers[c]()
     
     def quit(self):
-        self.quit_editor = True
+        self.running = False
+        if self.stdscr: self.stdscr.keypad(False)
+        curses.nocbreak()
+        curses.echo()
+        curses.endwin()
     
     def init_colors(self):
         curses.start_color()
@@ -55,10 +64,51 @@ class Editor():
         curses.init_pair(99, curses.COLOR_WHITE, curses.COLOR_BLACK)
         self.stdscr.bkgd("\0", curses.color_pair(99) | curses.A_BOLD)
     
-    def draw_cursor(self):
-        self.stdscr.move(self.y, self.x)
+    def get_screen_cursor(self, destination: Optional[LineCoordinates] = None) -> ScreenCoordinates:
+        if destination == None: destination = self.cursor_line
+        height, width = self.stdscr.getmaxyx()
+        line_number: int = self.screen_line-1
+        y,x= -1,0
+        
+        while line_number < destination[0] and y < height:
+            line_number += 1
+            line_length: int = self.line_length(self.get_line(line_number))
+            line_height: int = line_length//width
+            
+            if line_number == destination[0]:
+                line_height = destination[1]//width
+                x = destination[1]%width
+            
+            if line_number == self.screen_line: line_height -= self.screen_line_y
+            y += 1+line_height
+        
+        return (y,x)
     
-    def move_screen_cursor(self, by: int=0, pos: Optional[Tuple[int,int]] = None) -> Tuple[int,int]:
+    def get_cursor_line(self, screen_cursor_pos: Optional[ScreenCoordinates] = None) -> LineCoordinates:
+        if screen_cursor_pos == None: screen_cursor_pos = self.stdscr.getyx()
+        height, width = self.stdscr.getmaxyx()
+        number_of_lines: int = self.get_number_of_lines()
+        line_number: int = self.screen_line
+        y,x = -self.screen_line_y-1,0
+        
+        while line_number < number_of_lines and y < screen_cursor_pos[0] < height:
+            y += 1
+            line_length: int = self.line_length(self.get_line(line_number))
+            line_height: int = max(0,line_length-1)//width
+            
+            y+=line_height
+            if y >= screen_cursor_pos[0]:
+                pos: int = width*(line_height-y+screen_cursor_pos[0]) + screen_cursor_pos[1]
+                return (line_number, pos)
+            
+            line_number += 1
+        
+        return (number_of_lines, 0)
+    
+    def draw_cursor(self) -> None:
+        self.stdscr.move(*self.get_screen_cursor())
+    
+    def displace_screen_cursor(self, by: int=0, pos: Optional[ScreenCoordinates] = None) -> ScreenCoordinates:
         height, width = self.stdscr.getmaxyx()
         y, x = pos if pos else self.stdscr.getyx()
         
@@ -73,14 +123,22 @@ class Editor():
     def get_line(self, line: int) -> StyledLine:
         raise NotImplemented("Override this method in your editor!")
     
+    def get_number_of_lines(self) -> int:
+        # TODO actually implement this
+        return 1000000
+    
     def line_length(self, line: StyledLine):
         return sum([len(text) for text,_ in line])
+    
+    def line_height(self, line: StyledLine):
+        width = self.stdscr.getmaxyx()[1]
+        return 1+line_length(line)//width
     
     def display_lines(self) -> None:
         height, width = self.stdscr.getmaxyx()
         ypos: int = height-1 # we're always assuming ypos is at the end for now
         xpos: int = 0
-        line_number: int = self.cursor_line
+        line_number: int = self.cursor_line[0]
         
         while line_number >= 0 and ypos >= 0:
             line: StyledLine = self.get_line(line_number)
@@ -99,8 +157,10 @@ class Editor():
                         skipped_text += len(text)
                         
                         if skipped_text > -ypos*width:
-                            trimmed_line.append((text[:skipped_text+ypos*width],style))
+                            trimmed_line.append((text[len(text)-ypos*width-skipped_text:],style))
                 
+                self.screen_line = line_number
+                self.screen_line_y = -ypos
                 line = trimmed_line
                 ypos = 0
             
@@ -108,19 +168,15 @@ class Editor():
             
             for text,style in line:
                 self.stdscr.addstr(text, style)
-                
-                if line_number == self.cursor_line:
-                    self.y, self.x = self.stdscr.getyx()
             
             ypos -= 1
             line_number -= 1
         
-        self.draw_cursor()
-        
         if ypos >= 0:
             self.stdscr.scroll(ypos+1)
-            self.y -= ypos+1
-            self.draw_cursor()
+        
+        self.screen_line = line_number + 1
+        self.draw_cursor()
     
     def get_remaining_screen_space(self) -> int:
         height, width = self.stdscr.getmaxyx()
@@ -147,12 +203,11 @@ class StoryEditor(Editor):
     ):
         super(StoryEditor,self).__init__()
         self.story: "Story" = story
-        self.cursor_line: int = fragment_to_position(story, len(story.fragments), get_data=get_fragment_heights)
-        self.cursor_position_in_line: int = 0
+        self.cursor_line: LineCoordinates = (fragment_to_position(story, len(story.fragments), get_data=get_fragment_heights), 0)
     
-    def run(self, stdscr):
-        super(StoryEditor,self).run(stdscr)
-        print(self.benchmark())
+    def run(self, stdscr, listen_input: bool = True):
+        super(StoryEditor,self).run(stdscr, listen_input)
+        #print(self.benchmark())
     
     def init_colors(self):
         super(StoryEditor,self).init_colors()
@@ -286,6 +341,7 @@ class StoryEditor(Editor):
         #return timeit(lambda: self.display_on_screen(), number=n)/n
         #return timeit(lambda: self.display_on_screen(self.get_top_screen_fragment()), number=n)/n
         return timeit(lambda: self.display_lines(), number=n)/n
+        #return timeit(lambda: self.get_screen_cursor(), number=n)/n
 
 
 def launch_editor(story: "Story") -> None:

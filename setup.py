@@ -18,5 +18,5 @@ setup(
     packages=find_packages(include=['naicli']),
     install_requires=REQUIREMENTS,
     entry_points={'console_scripts': ['nai-cli = naicli.main:main']},
-    tests_require=['pytest', 'hypothesis']
+    tests_require=['pytest', 'hypothesis', 'pyte']
 )

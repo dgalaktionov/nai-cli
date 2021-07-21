@@ -10,7 +10,7 @@ from copy import deepcopy
 
 @pytest.fixture(scope="module")
 def book():
-    return open_story_file("../queen.story")
+    return open_story_file("example/grug.story")
 
 @pytest.fixture(scope="module")
 def full_text(book):
