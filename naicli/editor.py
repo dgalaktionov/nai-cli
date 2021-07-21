@@ -23,6 +23,7 @@ class Editor():
     ):
         self.cursor_line: int = 0
         self.cursor_position_in_line: int = 0
+        self.screen_y, self.screen_x = 0,0
     
     def run(self, stdscr):
         self.stdscr = stdscr
@@ -53,6 +54,9 @@ class Editor():
         curses.use_default_colors()
         curses.init_pair(99, curses.COLOR_WHITE, curses.COLOR_BLACK)
         self.stdscr.bkgd("\0", curses.color_pair(99) | curses.A_BOLD)
+    
+    def draw_cursor(self):
+        self.stdscr.move(self.y, self.x)
     
     def move_screen_cursor(self, by: int=0, pos: Optional[Tuple[int,int]] = None) -> Tuple[int,int]:
         height, width = self.stdscr.getmaxyx()
@@ -104,12 +108,19 @@ class Editor():
             
             for text,style in line:
                 self.stdscr.addstr(text, style)
+                
+                if line_number == self.cursor_line:
+                    self.y, self.x = self.stdscr.getyx()
             
             ypos -= 1
             line_number -= 1
-    
+        
+        self.draw_cursor()
+        
         if ypos >= 0:
             self.stdscr.scroll(ypos+1)
+            self.y -= ypos+1
+            self.draw_cursor()
     
     def get_remaining_screen_space(self) -> int:
         height, width = self.stdscr.getmaxyx()
