@@ -17,15 +17,11 @@ origin_colors = {
     Origin.user: 4,
 }
 
-class StoryEditor():
+class Editor():
     def __init__(
-        self,
-        story: "Story",
+        self
     ):
-        self.story: "Story" = story
-        self.cursor_fragment: int = len(story.fragments)
-        self.cursor_line: int = fragment_to_position(story, len(story.fragments), get_data=get_fragment_heights)
-        self.cursor_line_in_fragment: int = 0
+        self.cursor_line: int = 0
         self.cursor_position_in_line: int = 0
     
     def run(self, stdscr):
@@ -48,8 +44,6 @@ class StoryEditor():
         while not self.quit_editor:
             c = stdscr.getch()
             if c in event_handlers: event_handlers[c]()
-        
-        print(self.benchmark())
     
     def quit(self):
         self.quit_editor = True
@@ -57,15 +51,10 @@ class StoryEditor():
     def init_colors(self):
         curses.start_color()
         curses.use_default_colors()
-        
-        curses.init_pair(origin_colors[Origin.root], curses.COLOR_WHITE, curses.COLOR_BLACK)
-        curses.init_pair(origin_colors[Origin.ai], curses.COLOR_WHITE, curses.COLOR_BLACK)
-        curses.init_pair(origin_colors[Origin.prompt], curses.COLOR_YELLOW, -1)
-        curses.init_pair(origin_colors[Origin.edit], curses.COLOR_MAGENTA, -1)
-        curses.init_pair(origin_colors[Origin.user], curses.COLOR_CYAN, -1)
-        self.stdscr.bkgd("\0", curses.color_pair(origin_colors[Origin.root]) | curses.A_BOLD)
+        curses.init_pair(99, curses.COLOR_WHITE, curses.COLOR_BLACK)
+        self.stdscr.bkgd("\0", curses.color_pair(99) | curses.A_BOLD)
     
-    def move_screen_cursor(self, by: int=0, pos: Optional[Tuple[int,int]] = None, correct=False) -> Tuple[int,int]:
+    def move_screen_cursor(self, by: int=0, pos: Optional[Tuple[int,int]] = None) -> Tuple[int,int]:
         height, width = self.stdscr.getmaxyx()
         y, x = pos if pos else self.stdscr.getyx()
         
@@ -75,34 +64,10 @@ class StoryEditor():
             y += x//width
             x = x%width
         
-        if correct:
-            if y < 0:
-                x,y=0,0
-            elif y >= width:
-                x,y=width-1,height-1
-        
         return (y,x)
     
     def get_line(self, line: int) -> StyledLine:
-        line_chunks: StyledLine = []
-        fragment_number, relative_line = line_to_fragment(self.story, line)
-        if fragment_number >= len(self.story.fragments): return line_chunks
-        fragment_info: "FragmentInfo" = get_fragment_info(self.story.fragments[fragment_number])
-        
-        while fragment_info:
-            position: int = fragment_info.line_to_pos(relative_line)
-            length: int = fragment_info.line_lengths[relative_line]
-            line_chunks.append((fragment_info.fragment.data[position:position+length], curses.color_pair(origin_colors[fragment_info.fragment.origin]) | curses.A_BOLD))
-            
-            if relative_line < fragment_info.height:
-                # all chunks are contained in one single fragment line, ain't that nice
-                break
-            
-            # guess we're not that lucky today, gotta keep iterating
-            fragment_info = fragment_info.next
-            relative_line = 0
-        
-        return line_chunks
+        raise NotImplemented("Override this method in your editor!")
     
     def line_length(self, line: StyledLine):
         return sum([len(text) for text,_ in line])
@@ -146,6 +111,67 @@ class StoryEditor():
         if ypos >= 0:
             self.stdscr.scroll(ypos+1)
     
+    def get_remaining_screen_space(self) -> int:
+        height, width = self.stdscr.getmaxyx()
+        y, x = self.stdscr.getyx()
+        return width*(height-y) - x - 1
+    
+    def move_cursor_right(self, by=1) -> None:
+        pass
+    
+    def move_cursor_left(self, by=1) -> None:
+        pass
+    
+    def move_cursor_down(self, by=1) -> None:
+        pass
+
+    def move_cursor_up(self, by=1) -> None:
+        pass
+
+
+class StoryEditor(Editor):
+    def __init__(
+        self,
+        story: "Story",
+    ):
+        super(StoryEditor,self).__init__()
+        self.story: "Story" = story
+        self.cursor_line: int = fragment_to_position(story, len(story.fragments), get_data=get_fragment_heights)
+        self.cursor_position_in_line: int = 0
+    
+    def run(self, stdscr):
+        super(StoryEditor,self).run(stdscr)
+        print(self.benchmark())
+    
+    def init_colors(self):
+        super(StoryEditor,self).init_colors()
+        curses.init_pair(origin_colors[Origin.root], curses.COLOR_WHITE, curses.COLOR_BLACK)
+        curses.init_pair(origin_colors[Origin.ai], curses.COLOR_WHITE, curses.COLOR_BLACK)
+        curses.init_pair(origin_colors[Origin.prompt], curses.COLOR_YELLOW, -1)
+        curses.init_pair(origin_colors[Origin.edit], curses.COLOR_MAGENTA, -1)
+        curses.init_pair(origin_colors[Origin.user], curses.COLOR_CYAN, -1)
+    
+    def get_line(self, line: int) -> StyledLine:
+        line_chunks: StyledLine = []
+        fragment_number, relative_line = line_to_fragment(self.story, line)
+        if fragment_number >= len(self.story.fragments): return line_chunks
+        fragment_info: "FragmentInfo" = get_fragment_info(self.story.fragments[fragment_number])
+        
+        while fragment_info:
+            position: int = fragment_info.line_to_pos(relative_line)
+            length: int = fragment_info.line_lengths[relative_line]
+            line_chunks.append((fragment_info.fragment.data[position:position+length], curses.color_pair(origin_colors[fragment_info.fragment.origin]) | curses.A_BOLD))
+            
+            if relative_line < fragment_info.height:
+                # all chunks are contained in one single fragment line, ain't that nice
+                break
+            
+            # guess we're not that lucky today, gotta keep iterating
+            fragment_info = fragment_info.next
+            relative_line = 0
+        
+        return line_chunks
+    
     def get_top_screen_fragment(self) -> Tuple[int, int, int]:
         height, width = self.stdscr.getmaxyx()
         last_screen_fragment: int = self.cursor_fragment
@@ -181,10 +207,6 @@ class StoryEditor():
                 first_screen_fragment -= 1
         
         return (first_screen_fragment, first_fragment_line, first_line_position)
-    
-    def get_remaining_screen_space(self) -> int:
-        height, width = self.stdscr.getmaxyx()
-        y, x = self.stdscr.getyx()
         return width*(height-y) - x - 1
     
     def display_fragment(self, fragment_info: "FragmentInfo", start_at: int = 0) -> bool:
@@ -245,18 +267,6 @@ class StoryEditor():
         
         self.cursor_line_in_fragment = max(0, min(fragment_info.height, self.cursor_line_in_fragment))
         return by
-    
-    def move_cursor_right(self, by=1) -> None:
-        pass
-    
-    def move_cursor_left(self, by=1) -> None:
-        pass
-    
-    def move_cursor_down(self, by=1) -> None:
-        pass
-
-    def move_cursor_up(self, by=1) -> None:
-        pass
 
     def benchmark(self, n=10000) -> float:
         from timeit import timeit
