@@ -108,9 +108,9 @@ class Editor():
     def draw_cursor(self) -> None:
         self.stdscr.move(*self.get_screen_cursor())
     
-    def displace_screen_cursor(self, by: int=0, pos: Optional[ScreenCoordinates] = None) -> ScreenCoordinates:
+    def displace_screen_cursor(self, by: int=0, from_pos: Optional[ScreenCoordinates] = None) -> ScreenCoordinates:
         height, width = self.stdscr.getmaxyx()
-        y, x = pos if pos else self.stdscr.getyx()
+        y, x = from_pos if from_pos else self.stdscr.getyx()
         
         x += by
         
@@ -184,16 +184,24 @@ class Editor():
         return width*(height-y) - x - 1
     
     def move_cursor_right(self, by=1) -> None:
-        pass
+        self.cursor_line = self.get_cursor_line(self.displace_screen_cursor(by))
+        self.draw_cursor()
     
     def move_cursor_left(self, by=1) -> None:
-        pass
+        self.cursor_line = self.get_cursor_line(self.displace_screen_cursor(-by))
+        self.draw_cursor()
     
     def move_cursor_down(self, by=1) -> None:
-        pass
+        y,x = self.get_screen_cursor()
+        y += by
+        self.cursor_line = self.get_cursor_line((y,x))
+        self.draw_cursor()
 
     def move_cursor_up(self, by=1) -> None:
-        pass
+        y,x = self.get_screen_cursor()
+        y -= by
+        self.cursor_line = self.get_cursor_line((y,x))
+        self.draw_cursor()
 
 
 class StoryEditor(Editor):
