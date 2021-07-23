@@ -1,5 +1,4 @@
 import os
-import pyte
 import pytest
 import curses
 
