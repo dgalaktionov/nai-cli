@@ -56,22 +56,23 @@ def editor_cursor(e):
         if line_number < number_of_lines-1:
             max_y = y
             
-            if line_pos >= line_length:
+            if line_pos > line_length:
                 line_pos = 0
                 line_number += 1
                 line = e.get_line(line_number)
                 line_length = e.line_length(line)
                 line_chunk = 0
                 chunk_pos = 0
-    
+        
         for x in range(width):
             c = e.stdscr.instr(y,x,1)
             
             if line_pos >= line_length:
                 assert c == b" "
-                assert e.get_screen_cursor((line_number, line_pos)) == (max_y, line_pos%width)
+                assert e.get_screen_cursor((line_number, min(line_pos,line_length))) == (max_y, min(line_pos,line_length)%width)
                 assert e.get_cursor_line((y,x)) == ((line_number+1, 0) if after_end else (line_number, line_length))
                 after_end = line_number < number_of_lines-1
+                if line_pos == line_length: line_pos += 1
             else:
                 while chunk_pos >= len(line[line_chunk][0]):
                     line_chunk += 1
