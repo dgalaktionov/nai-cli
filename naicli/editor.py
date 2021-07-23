@@ -72,15 +72,17 @@ class Editor():
         
         while line_number < destination[0] and y < height:
             line_number += 1
+            y += 1
             line_length: int = self.line_length(self.get_line(line_number))
             line_height: int = line_length//width
+            line_pos: int = min(destination[1], line_length)
             
             if line_number == destination[0]:
-                line_height = destination[1]//width
-                x = destination[1]%width
+                line_height = line_pos//width
+                x = line_pos%width
             
             if line_number == self.screen_line: line_height -= self.screen_line_y
-            y += 1+line_height
+            y += line_height
         
         return (y,x)
     
@@ -90,20 +92,21 @@ class Editor():
         number_of_lines: int = self.get_number_of_lines()
         line_number: int = self.screen_line
         y,x = -self.screen_line_y-1,0
+        line_length: int = 0
         
         while line_number < number_of_lines and y < screen_cursor_pos[0] < height:
             y += 1
-            line_length: int = self.line_length(self.get_line(line_number))
+            line_length = self.line_length(self.get_line(line_number))
             line_height: int = max(0,line_length-1)//width
             
             y+=line_height
             if y >= screen_cursor_pos[0]:
-                pos: int = width*(line_height-y+screen_cursor_pos[0]) + screen_cursor_pos[1]
+                pos: int = min(width*(line_height-y+screen_cursor_pos[0]) + screen_cursor_pos[1], line_length)
                 return (line_number, pos)
             
             line_number += 1
         
-        return (number_of_lines, 0)
+        return (number_of_lines-1, line_length)
     
     def draw_cursor(self) -> None:
         self.stdscr.move(*self.get_screen_cursor())
@@ -117,6 +120,9 @@ class Editor():
         if not 0 <= x < width:
             y += x//width
             x = x%width
+        
+        if y < 0:
+            y,x = 0,0
         
         return (y,x)
     
@@ -199,7 +205,7 @@ class Editor():
 
     def move_cursor_up(self, by=1) -> None:
         y,x = self.get_screen_cursor()
-        y -= by
+        y = max(0, y-by)
         self.cursor_line = self.get_cursor_line((y,x))
         self.draw_cursor()
 
@@ -245,6 +251,9 @@ class StoryEditor(Editor):
             relative_line = 0
         
         return line_chunks
+    
+    def get_number_of_lines(self) -> int:
+        return 1+fragment_to_position(self.story, len(self.story.fragments), get_data=get_fragment_heights)
     
     def get_top_screen_fragment(self) -> Tuple[int, int, int]:
         height, width = self.stdscr.getmaxyx()
