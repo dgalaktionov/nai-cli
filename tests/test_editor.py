@@ -51,6 +51,8 @@ def editor_cursor(e):
     max_y: int = 0
     
     for y in range(height):
+        after_end: bool = False
+        
         if line_number < number_of_lines-1:
             max_y = y
             
@@ -68,7 +70,8 @@ def editor_cursor(e):
             if line_pos >= line_length:
                 assert c == b" "
                 assert e.get_screen_cursor((line_number, line_pos)) == (max_y, line_pos%width)
-                assert e.get_cursor_line((y,x)) == (line_number, line_pos)
+                assert e.get_cursor_line((y,x)) == ((line_number+1, 0) if after_end else (line_number, line_length))
+                after_end = line_number < number_of_lines-1
             else:
                 while chunk_pos >= len(line[line_chunk][0]):
                     line_chunk += 1

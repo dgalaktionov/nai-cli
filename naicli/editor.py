@@ -88,10 +88,14 @@ class Editor():
     
     def get_cursor_line(self, screen_cursor_pos: Optional[ScreenCoordinates] = None) -> LineCoordinates:
         if screen_cursor_pos == None: screen_cursor_pos = self.stdscr.getyx()
+        
+        if screen_cursor_pos[1] < 0: screen_cursor_pos = (screen_cursor_pos[0]-1, -1)
+        if screen_cursor_pos[0] < 0: return (0,0)
+        
         height, width = self.stdscr.getmaxyx()
         number_of_lines: int = self.get_number_of_lines()
         line_number: int = self.screen_line
-        y,x = -self.screen_line_y-1,0
+        y = -self.screen_line_y-1
         line_length: int = 0
         
         while line_number < number_of_lines and y < screen_cursor_pos[0] < height:
@@ -101,8 +105,16 @@ class Editor():
             
             y+=line_height
             if y >= screen_cursor_pos[0]:
-                pos: int = min(width*(line_height-y+screen_cursor_pos[0]) + screen_cursor_pos[1], line_length)
-                return (line_number, pos)
+                x : int = screen_cursor_pos[1]
+                if x < 0:
+                    x = line_length%width if y == screen_cursor_pos[0] else width-1
+                    
+                pos: int = width*(line_height-y+screen_cursor_pos[0]) + x
+                if pos > line_length and line_number < number_of_lines-1:
+                    # hack to account for right cursor movement at the end of a line...
+                    screen_cursor_pos = (screen_cursor_pos[0]+1, 0)
+                else:
+                    return (line_number, min(pos, line_length))
             
             line_number += 1
         
@@ -117,10 +129,6 @@ class Editor():
         
         x += by
         
-        if not 0 <= x < width:
-            y += x//width
-            x = x%width
-        
         if y < 0:
             y,x = 0,0
         
@@ -130,7 +138,6 @@ class Editor():
         raise NotImplemented("Override this method in your editor!")
     
     def get_number_of_lines(self) -> int:
-        # TODO actually implement this
         return 1000000
     
     def line_length(self, line: StyledLine):
