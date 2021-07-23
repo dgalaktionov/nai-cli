@@ -138,7 +138,7 @@ class Editor():
         raise NotImplemented("Override this method in your editor!")
     
     def get_number_of_lines(self) -> int:
-        return 1000000
+        raise NotImplemented("Override this method in your editor!")
     
     def line_length(self, line: StyledLine):
         return sum([len(text) for text,_ in line])
