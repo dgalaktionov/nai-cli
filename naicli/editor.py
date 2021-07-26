@@ -113,9 +113,6 @@ class Editor():
         if screen_cursor_pos == None: screen_cursor_pos = self.stdscr.getyx()
         cursor_y, cursor_x = screen_cursor_pos
         
-        if cursor_x < 0: cursor_y, cursor_x = (cursor_y-1, -1)
-        if cursor_y < 0: return (0,0)
-        
         height, width = self.stdscr.getmaxyx()
         number_of_lines: int = self.get_number_of_lines()
         line_number: int = self.screen_line
@@ -125,7 +122,7 @@ class Editor():
         while line_number < number_of_lines and y < cursor_y < height:
             y += 1
             line_length = self.line_length(self.get_line(line_number))
-            line_height: int = line_length//width #max(0,line_length-1)//width
+            line_height: int = line_length//width
             
             y+=line_height
             if y >= cursor_y:
@@ -147,17 +144,26 @@ class Editor():
     def draw_cursor(self) -> None:
         self.stdscr.move(*self.get_screen_cursor())
     
-    def displace_screen_cursor(self, by: int=0, from_pos: Optional[ScreenCoordinates] = None) -> ScreenCoordinates:
-        height, width = self.stdscr.getmaxyx()
-        y, x = from_pos if from_pos else self.stdscr.getyx()
+    def displace_cursor(self, by: int=0, from_pos: Optional[LineCoordinates] = None) -> LineCoordinates:
+        line_number, position_in_line = from_pos if from_pos else self.cursor_line
+        line_length: int = self.line_length(self.get_line(line_number))
+        number_of_lines: int = self.get_number_of_lines()
+        position_in_line += by
         
-        x += by
+        while position_in_line < 0 and line_number > 0:
+            by = position_in_line+1
+            line_number -= 1
+            line_length = self.line_length(self.get_line(line_number))
+            position_in_line = line_length + by
         
-        if y < 0:
-            y,x = 0,0
+        while position_in_line > line_length and line_number < number_of_lines:
+            by = position_in_line - line_length
+            line_number += 1
+            line_length = self.line_length(self.get_line(line_number))
+            position_in_line = by
         
-        return (y,x)
-    
+        return min((number_of_lines, 0), max((line_number, position_in_line), (0,0)))
+        
     def get_line(self, line: int) -> StyledLine:
         raise NotImplemented("Override this method in your editor!")
     
@@ -221,11 +227,11 @@ class Editor():
         return width*(height-y) - x - 1
     
     def move_cursor_right(self, by=1) -> None:
-        self.cursor_line = self.get_cursor_line(self.displace_screen_cursor(by))
+        self.cursor_line = self.displace_cursor(by)
         self.draw_cursor()
     
     def move_cursor_left(self, by=1) -> None:
-        self.cursor_line = self.get_cursor_line(self.displace_screen_cursor(-by))
+        self.cursor_line = self.displace_cursor(-by)
         self.draw_cursor()
     
     def move_cursor_down(self, by=1) -> None:
