@@ -62,7 +62,7 @@ class Editor():
         curses.start_color()
         curses.use_default_colors()
         curses.init_pair(99, curses.COLOR_WHITE, curses.COLOR_BLACK)
-        self.stdscr.bkgd("\0", curses.color_pair(99) | curses.A_BOLD)
+        self.stdscr.bkgd(" ", curses.color_pair(99) | curses.A_BOLD)
     
     def get_screen_cursor(self, destination: Optional[LineCoordinates] = None) -> ScreenCoordinates:
         if destination == None: destination = self.cursor_line
@@ -131,18 +131,11 @@ class Editor():
                     x = line_length%width if y == cursor_y else width-1
                     
                 pos: int = width*(line_height-y+cursor_y) + x
-                if pos > line_length and line_number < number_of_lines-1:
-                    # hack to account for right cursor movement at the end of a line...
-                    cursor_y, cursor_x = (cursor_y+1, 0)
-                else:
-                    return (line_number, min(pos, line_length))
+                return (line_number, min(pos, line_length))
             
             line_number += 1
         
-        return (number_of_lines-1, line_length)
-    
-    def draw_cursor(self) -> None:
-        self.stdscr.move(*self.get_screen_cursor())
+        return (number_of_lines, 0)
     
     def displace_cursor(self, by: int=0, from_pos: Optional[LineCoordinates] = None) -> LineCoordinates:
         line_number, position_in_line = from_pos if from_pos else self.cursor_line
@@ -176,6 +169,15 @@ class Editor():
     def line_height(self, line: StyledLine):
         width = self.stdscr.getmaxyx()[1]
         return 1+self.line_length(line)//width
+    
+    def draw_cursor(self, cursor_position: Optional[ScreenCoordinates] = None) -> None:
+        y,x = cursor_position if cursor_position else self.get_screen_cursor()
+        
+        if y < 0:
+            self.scroll_up(-y)
+            y = 0
+        
+        self.stdscr.move(y,x)
     
     def display_lines(self, bottom_y: Optional[int] = None) -> None:
         height, width = self.stdscr.getmaxyx()
@@ -248,13 +250,8 @@ class Editor():
     def move_cursor_up(self, by=1) -> None:
         y,x = self.get_screen_cursor()
         y = y-by
-        
-        if y < 0:
-            self.scroll_up(-y)
-            y = 0
-        
-        self.cursor_line = self.get_cursor_line((y,x))
-        self.draw_cursor()
+        self.draw_cursor((y,x))
+        self.cursor_line = self.get_cursor_line()
 
 
 class StoryEditor(Editor):
