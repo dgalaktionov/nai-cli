@@ -152,7 +152,7 @@ class Editor():
         
         if to_scroll > 0:
             self.stdscr.scroll(to_scroll)
-            self.display_lines()
+            self.display_lines(top_y=height-to_scroll)
     
     def displace_cursor_horizontally(self, by: int=0, from_pos: Optional[LineCoordinates] = None) -> LineCoordinates:
         line_number, position_in_line = from_pos if from_pos else self.cursor_line
@@ -227,39 +227,36 @@ class Editor():
         self.stdscr.move(y,x)
     
     def display_lines(self, bottom_y: Optional[int] = None, top_y: Optional[int] = None) -> None:
-        import time
-        #self.stdscr.clear()
         height, width = self.stdscr.getmaxyx()
+        top_y = max(0,top_y-1) if top_y != None else 0
         ypos: int = bottom_y if bottom_y != None else height-1
         xpos: int = 0
         line_number: int = self.cursor_line[0]
         
-        while line_number >= 0 and ypos >= 0:
-            #time.sleep(1)
-            #self.stdscr.refresh()
+        while line_number >= 0 and ypos >= top_y:
             self.screen_line_y = 0
             line: StyledLine = self.get_line(line_number)
             length: int = self.line_length(line)
             ypos -= self.cursor_line[1]//width if line_number == self.cursor_line[0] else length//width
             
-            if ypos < 0:
+            if ypos < top_y:
                 # we've gotta trim this line to fit
+                to_skip: int = (top_y - ypos)*width
                 skipped_text: int = 0
                 trimmed_line: StyledLine = []
                 
                 for text,style in line:
-                    if skipped_text >= -ypos*width:
+                    if skipped_text >= to_skip:
                         trimmed_line.append((text,style))
                     else:
                         skipped_text += len(text)
                         
-                        if skipped_text > -ypos*width:
-                            trimmed_line.append((text[len(text)-ypos*width-skipped_text:],style))
+                        if skipped_text > to_skip:
+                            trimmed_line.append((text[len(text)-skipped_text+to_skip:],style))
                 
-                self.screen_line = line_number
-                self.screen_line_y = -ypos
+                self.screen_line_y = top_y-ypos
                 line = trimmed_line
-                ypos = 0
+                ypos = top_y
             
             self.stdscr.move(ypos,xpos)
             
@@ -273,16 +270,22 @@ class Editor():
             ypos -= 1
             line_number -= 1
         
-        if ypos >= 0:
-            self.stdscr.scroll(ypos+1)  
-            
-        self.screen_line = line_number + 1
+        if ypos >= top_y:
+            self.stdscr.scroll(ypos+1-top_y)  
+        
+        if top_y == 0:
+            self.screen_line = line_number + 1
+        else:
+            self.screen_line, position = self.displace_cursor_vertically(by=-top_y, from_pos=(line_number+1, self.screen_line_y*width))
+            self.screen_line_y = position//width
+        
         self.draw_cursor()
     
     def get_remaining_screen_space(self) -> int:
         height, width = self.stdscr.getmaxyx()
         y, x = self.stdscr.getyx()
         return width*(height-y) - x - 1
+        #FIXME ideally that -1 shouldn't be there, but i have to deal with a lot of nasty edge cases if i write over the bottom right corner
     
     def move_cursor_right(self, by=1) -> None:
         self.cursor_line = self.displace_cursor_horizontally(by)
