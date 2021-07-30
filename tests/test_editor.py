@@ -6,7 +6,7 @@ from time import sleep
 from itertools import accumulate
 
 from naicli.story_model import *
-from naicli.story import open_story_file
+from naicli.story import open_story_file, assemble_story_fragments
 from naicli.editor import *
 
 @pytest.fixture(scope="module")
@@ -20,6 +20,7 @@ def story(book):
 @pytest.fixture(scope="module")
 def editor(story):
     return StoryEditor(story)
+    #return BufferEditor(text=assemble_story_fragments(story.fragments))
 
 def run_and_test(editor, assertion):
     stdscr = curses.initscr()
@@ -45,7 +46,7 @@ def editor_cursor(e):
     line_number = e.screen_line
     line_pos = e.screen_line_y*width
     line = e.get_line(line_number)
-    line_length = e.line_length(line)
+    line_length = e.line_length(line_number)
     line_chunk, chunk_pos = next(((i, len(line[i][0])+line_pos-l) for i,l in enumerate(accumulate(len(text) for text,_ in line)) if l > line_pos), (0,0))
     number_of_lines = e.get_number_of_lines()
     max_y: int = 0
@@ -58,7 +59,7 @@ def editor_cursor(e):
                 line_pos = 0
                 line_number += 1
                 line = e.get_line(line_number)
-                line_length = e.line_length(line)
+                line_length = e.line_length(line_number)
                 line_chunk = 0
                 chunk_pos = 0
         
