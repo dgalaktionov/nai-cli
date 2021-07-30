@@ -78,11 +78,10 @@ class Editor():
             y += self.line_height(line_number)
             line_number += 1
         
-        if line_number == destination[0]:
+        if line_number >= destination[0]:
             line_pos: int = min(destination[1], self.line_length(line_number))
-            y += line_pos//width
             x = line_pos%width
-            
+            y += line_pos//width if line_number == destination[0] else -1
         
         return (y,x)
     
