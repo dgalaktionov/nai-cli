@@ -1,6 +1,7 @@
 import curses
 
 from typing import List,Tuple,Optional,NewType
+from functools import cached_property
 
 from .story_model import *
 from .story import *
@@ -28,7 +29,6 @@ class Editor():
         self.running: bool = False
     
     def run(self, stdscr, listen_input: bool = True):
-        height, width = stdscr.getmaxyx()
         self.stdscr = stdscr
         curses.noecho()
         curses.cbreak()
@@ -36,8 +36,8 @@ class Editor():
         stdscr.scrollok(True)
         self.init_colors()
         
-        self.screen_line, screen_pos = self.displace_cursor_vertically(by=-height+1)
-        self.screen_line_y = screen_pos//width
+        self.screen_line, screen_pos = self.displace_cursor_vertically(by=-self.height+1)
+        self.screen_line_y = screen_pos//self.width
         self.display_lines()
         
         event_handlers = {
@@ -70,54 +70,57 @@ class Editor():
         curses.init_pair(99, curses.COLOR_WHITE, curses.COLOR_BLACK)
         self.stdscr.bkgd(" ", curses.color_pair(99) | curses.A_BOLD)
     
+    @cached_property
+    def height(self):
+        return self.stdscr.getmaxyx()[0]-1
+    
+    @cached_property
+    def width(self):
+        return self.stdscr.getmaxyx()[1]
+    
     def get_screen_cursor(self, destination: Optional[LineCoordinates] = None) -> ScreenCoordinates:
         if destination == None: destination = self.cursor_line
-        height, width = self.stdscr.getmaxyx()
         line_number: int = self.screen_line
         y,x= -self.screen_line_y,0
         
-        while line_number < destination[0] and y < height:
+        while line_number < destination[0] and y < self.height:
             y += self.line_height(line_number)
             line_number += 1
         
         if line_number >= destination[0]:
             line_pos: int = min(destination[1], self.line_length(line_number))
-            x = line_pos%width
-            y += line_pos//width if line_number == destination[0] else -1
+            x = line_pos%self.width
+            y += line_pos//self.width if line_number == destination[0] else -1
         
         return (y,x)
     
     def get_cursor_line(self, screen_cursor_pos: Optional[ScreenCoordinates] = None) -> LineCoordinates:
         if screen_cursor_pos == None: screen_cursor_pos = self.stdscr.getyx()
         cursor_y, cursor_x = screen_cursor_pos
-        height, width = self.stdscr.getmaxyx()
-        cursor_line = (self.screen_line, self.screen_line_y*width+cursor_x)
+        cursor_line = (self.screen_line, self.screen_line_y*self.width+cursor_x)
         return self.displace_cursor_vertically(by=cursor_y, from_pos=cursor_line)
     
     def get_height_from_to(self, source_line=Tuple[int,int], target_line=Tuple[int,int]) -> int:
-        height, width = self.stdscr.getmaxyx()
         return sum([self.line_height(line) for line in range(source_line[0], target_line[0])]) - source_line[1] + target_line[1]
     
     def scroll_by(self, by: int = 0) -> None:
-        height, width = self.stdscr.getmaxyx()
-        top_y, bottom_y = 0,height
-        self.screen_line, screen_position = self.displace_cursor_vertically(by, from_pos=(self.screen_line, self.screen_line_y*width))
-        self.screen_line_y = screen_position//width
-        if by > 0: top_y = height-by
+        top_y, bottom_y = 0,self.height
+        self.screen_line, screen_position = self.displace_cursor_vertically(by, from_pos=(self.screen_line, self.screen_line_y*self.width))
+        self.screen_line_y = screen_position//self.width
+        if by > 0: top_y = self.height-by
         if by < 0: bottom_y = -by+1
         self.stdscr.scroll(by)
         self.display_lines(top_y, bottom_y)
     
     def scroll_to(self, target_line: Optional[Tuple[int,int]] = None) -> None:
-        height, width = self.stdscr.getmaxyx()
-        target_line = target_line if target_line else (self.cursor_line[0], self.cursor_line[1]//width)
+        target_line = target_line if target_line else (self.cursor_line[0], self.cursor_line[1]//self.width)
         
         if target_line < (self.screen_line, self.screen_line_y):
             self.screen_line, self.screen_line_y = target_line
         else:
-            self.screen_line, screen_position = self.displace_cursor_vertically(by=-height+1, 
-                from_pos=(target_line[0], target_line[1]*width))
-            self.screen_line_y = screen_position//width
+            self.screen_line, screen_position = self.displace_cursor_vertically(by=-self.height+1, 
+                from_pos=(target_line[0], target_line[1]*self.width))
+            self.screen_line_y = screen_position//self.width
         
         self.display_lines()
     
@@ -143,10 +146,9 @@ class Editor():
     
     def displace_cursor_vertically(self, by: int=0, from_pos: Optional[LineCoordinates] = None) -> LineCoordinates:
         line_number, position_in_line = from_pos if from_pos else self.cursor_line
-        height, width = self.stdscr.getmaxyx()
-        line_y: int = position_in_line//width
+        line_y: int = position_in_line//self.width
         line_length: int = self.line_length(line_number)
-        line_height: int = line_length//width
+        line_height: int = line_length//self.width
         number_of_lines: int = self.get_number_of_lines()
         line_y += by
         
@@ -154,17 +156,17 @@ class Editor():
             by = line_y+1
             line_number -= 1
             line_length = self.line_length(line_number)
-            line_height = line_length//width
+            line_height = line_length//self.width
             line_y = line_height+by
         
         while line_y > line_height and line_number < number_of_lines:
             by = line_y - line_height - 1
             line_number += 1
             line_length = self.line_length(line_number)
-            line_height = line_length//width
+            line_height = line_length//self.width
             line_y = by
         
-        position_in_line = min(line_length, line_y*width+(position_in_line%width))
+        position_in_line = min(line_length, line_y*self.width+(position_in_line%self.width))
         return min((number_of_lines, 0), max((line_number, position_in_line), (0,0)))
         
     def get_line(self, line: int) -> StyledLine:
@@ -177,40 +179,36 @@ class Editor():
         return sum([len(text) for text,_ in self.get_line(line)])
     
     def line_height(self, line: int):
-        width = self.stdscr.getmaxyx()[1]
-        return 1+self.line_length(line)//width
+        return 1+self.line_length(line)//self.width
     
     def draw_cursor(self, cursor_position: Optional[ScreenCoordinates] = None) -> None:
         y,x = cursor_position if cursor_position else self.get_screen_cursor()
-        height, width = self.stdscr.getmaxyx()
         
         if y < 0:
-            if self.screen_line - self.cursor_line[0] < height//2:
-                self.scroll_by(-self.get_height_from_to(source_line=(self.cursor_line[0], self.cursor_line[1]//width), 
+            if self.screen_line - self.cursor_line[0] < self.height//2:
+                self.scroll_by(-self.get_height_from_to(source_line=(self.cursor_line[0], self.cursor_line[1]//self.width), 
                     target_line=(self.screen_line, self.screen_line_y)))
             else:
-                self.scroll_to(cursor_line[0], cursor_line[1]//width)
+                self.scroll_to(cursor_line[0], cursor_line[1]//self.width)
         
-        elif y < height:
+        elif y < self.height:
             self.stdscr.move(y,x)
         else:
-            if self.cursor_line[0] - self.screen_line < height + height//2:
+            if self.cursor_line[0] - self.screen_line < self.height + self.height//2:
                 self.scroll_by(self.get_height_from_to(source_line=(self.screen_line, self.screen_line_y), 
-                    target_line=(self.cursor_line[0], self.cursor_line[1]//width)) - height + 1)
+                    target_line=(self.cursor_line[0], self.cursor_line[1]//self.width)) - self.height + 1)
             else:
-                self.scroll_to(cursor_line[0], cursor_line[1]//width)
+                self.scroll_to(cursor_line[0], cursor_line[1]//self.width)
     
     def display_lines(self, top_y: Optional[int] = None, bottom_y: Optional[int] = None) -> None:
-        height, width = self.stdscr.getmaxyx()
-        #bottom_y: int = bottom_y if bottom_y != None else height
-        bottom_y = bottom_y if bottom_y != None else height
+        bottom_y = bottom_y if bottom_y != None else self.height
         ypos: int = top_y if top_y != None else 0
         xpos: int = 0
         top_line, top_line_y = self.screen_line, self.screen_line_y
         
         if ypos > 0: 
-            top_line, top_position = self.displace_cursor_vertically(by=ypos, from_pos=(self.screen_line, self.screen_line_y*width))
-            top_line_y = top_position//width
+            top_line, top_position = self.displace_cursor_vertically(by=ypos, from_pos=(self.screen_line, self.screen_line_y*self.width))
+            top_line_y = top_position//self.width
         
         line_number: int = top_line
         
@@ -220,7 +218,7 @@ class Editor():
             
             if top_line_y > 0 and line_number == top_line:
                 # we've gotta trim this line to fit
-                to_skip: int = width*top_line_y
+                to_skip: int = self.width*top_line_y
                 skipped_text: int = 0
                 trimmed_line: StyledLine = []
                 
@@ -238,22 +236,25 @@ class Editor():
             
             self.stdscr.move(ypos,xpos)
             
-            if length//width < height-ypos:
+            if length//self.width < self.height-ypos:
                 for text,style in line:
                     self.stdscr.addstr(text, style)
             else:
-                for text,style in line:
-                    self.stdscr.addnstr(text, self.get_remaining_screen_space(), style)
+                remaining_space: int = self.get_remaining_screen_space()
             
-            ypos += 1+length//width
+                for text,style in line:
+                    if remaining_space > 0:
+                        self.stdscr.addnstr(text, remaining_space, style)
+                        remaining_space -= len(text)
+            
+            ypos += 1+length//self.width
             line_number += 1
         
         self.draw_cursor()
     
     def get_remaining_screen_space(self) -> int:
-        height, width = self.stdscr.getmaxyx()
         y, x = self.stdscr.getyx()
-        return width*(height-y) - x - 1
+        return self.width*(self.height-y) - x
         #FIXME ideally that -1 shouldn't be there, but i have to deal with a lot of nasty edge cases if i write over the bottom right corner
     
     def move_cursor_right(self, by=1) -> None:
@@ -278,7 +279,6 @@ class Editor():
     
     def benchmark(self, n=10000) -> float:
         from timeit import timeit
-        height, width = self.stdscr.getmaxyx()
         #return timeit(lambda: self.get_displayable_fragments(height), number=n)
         #return timeit(lambda: self.display_on_screen(), number=n)/n
         #return timeit(lambda: self.display_on_screen(self.get_top_screen_fragment()), number=n)/n
@@ -286,8 +286,8 @@ class Editor():
         #return timeit(lambda: self.get_screen_cursor(), number=n)/n
         
         def bench_scroll():
-            screen_line, screen_line_position = self.screen_line, self.screen_line_y*width
-            self.cursor_line = self.displace_cursor_vertically(by=height, from_pos=(screen_line, screen_line_position))
+            screen_line, screen_line_position = self.screen_line, self.screen_line_y*self.width
+            self.cursor_line = self.displace_cursor_vertically(by=self.height, from_pos=(screen_line, screen_line_position))
             self.draw_cursor()
             self.cursor_line = self.screen_line, screen_line_position
             self.draw_cursor()
@@ -375,7 +375,6 @@ class StoryEditor(Editor):
 
     def benchmark(self, n=10000) -> float:
         from timeit import timeit
-        height = self.stdscr.getmaxyx()[0]
         #return timeit(lambda: self.get_displayable_fragments(height), number=n)
         #return timeit(lambda: self.display_on_screen(), number=n)/n
         #return timeit(lambda: self.display_on_screen(self.get_top_screen_fragment()), number=n)/n
