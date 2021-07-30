@@ -34,7 +34,6 @@ class Editor():
         stdscr.keypad(True)
         stdscr.scrollok(True)
         self.init_colors()
-        get_fragment_infos(self.story.fragments)
         self.display_lines()
         
         event_handlers = {
@@ -43,6 +42,7 @@ class Editor():
             curses.KEY_RIGHT: self.move_cursor_right,
             curses.KEY_UP: self.move_cursor_up,
             curses.KEY_DOWN: self.move_cursor_down,
+            ord("a"): self.insert_text,
         }
         
         if listen_input:
@@ -73,7 +73,7 @@ class Editor():
         while line_number < destination[0] and y < height:
             line_number += 1
             y += 1
-            line_length: int = self.line_length(self.get_line(line_number))
+            line_length: int = self.line_length(line_number)
             line_height: int = line_length//width
             line_pos: int = min(destination[1], line_length)
             
@@ -98,7 +98,7 @@ class Editor():
         
         while line_number < number_of_lines and y < cursor_y < height:
             y += 1
-            line_length = self.line_length(self.get_line(line_number))
+            line_length = self.line_length(line_number)
             line_height: int = line_length//width
             
             y+=line_height
@@ -123,7 +123,7 @@ class Editor():
             if target_line[0] < self.screen_line:
                 to_scroll += 1+self.screen_line_y
                 self.screen_line -= 1
-                self.screen_line_y = self.line_height(self.get_line(self.screen_line))-1
+                self.screen_line_y = self.line_height(self.screen_line)-1
             else:
                 to_scroll += self.screen_line_y - target_line[1]
                 self.screen_line_y = target_line[1]
@@ -143,7 +143,7 @@ class Editor():
     
         while target_line > (last_line_number, last_line_y) < (number_of_lines,0):
             if last_line_number < target_line[0]:
-                to_scroll += self.line_height(self.get_line(last_line_number)) - last_line_y
+                to_scroll += self.line_height(last_line_number) - last_line_y
                 last_line_number += 1
                 last_line_y = 0
             else:
@@ -156,20 +156,20 @@ class Editor():
     
     def displace_cursor_horizontally(self, by: int=0, from_pos: Optional[LineCoordinates] = None) -> LineCoordinates:
         line_number, position_in_line = from_pos if from_pos else self.cursor_line
-        line_length: int = self.line_length(self.get_line(line_number))
+        line_length: int = self.line_length(line_number)
         number_of_lines: int = self.get_number_of_lines()
         position_in_line += by
         
         while position_in_line < 0 and line_number > 0:
             by = position_in_line+1
             line_number -= 1
-            line_length = self.line_length(self.get_line(line_number))
+            line_length = self.line_length(line_number)
             position_in_line = line_length + by
         
         while position_in_line > line_length and line_number < number_of_lines:
             by = position_in_line - line_length - 1
             line_number += 1
-            line_length = self.line_length(self.get_line(line_number))
+            line_length = self.line_length(line_number)
             position_in_line = by
         
         return min((number_of_lines, 0), max((line_number, position_in_line), (0,0)))
@@ -178,7 +178,7 @@ class Editor():
         line_number, position_in_line = from_pos if from_pos else self.cursor_line
         height, width = self.stdscr.getmaxyx()
         line_y: int = position_in_line//width
-        line_length: int = self.line_length(self.get_line(line_number))
+        line_length: int = self.line_length(line_number)
         line_height: int = line_length//width
         number_of_lines: int = self.get_number_of_lines()
         line_y += by
@@ -186,14 +186,14 @@ class Editor():
         while line_y < 0 and line_number > 0:
             by = line_y+1
             line_number -= 1
-            line_length = self.line_length(self.get_line(line_number))
+            line_length = self.line_length(line_number)
             line_height = line_length//width
             line_y = line_height+by
         
         while line_y > line_height and line_number < number_of_lines:
             by = line_y - line_height - 1
             line_number += 1
-            line_length = self.line_length(self.get_line(line_number))
+            line_length = self.line_length(line_number)
             line_height = line_length//width
             line_y = by
         
@@ -206,10 +206,10 @@ class Editor():
     def get_number_of_lines(self) -> int:
         raise NotImplemented("Override this method in your editor!")
     
-    def line_length(self, line: StyledLine):
-        return sum([len(text) for text,_ in line])
+    def line_length(self, line: int) -> int:
+        return sum([len(text) for text,_ in self.get_line(line)])
     
-    def line_height(self, line: StyledLine):
+    def line_height(self, line: int):
         width = self.stdscr.getmaxyx()[1]
         return 1+self.line_length(line)//width
     
@@ -236,7 +236,7 @@ class Editor():
         while line_number >= 0 and ypos >= top_y:
             self.screen_line_y = 0
             line: StyledLine = self.get_line(line_number)
-            length: int = self.line_length(line)
+            length: int = self.line_length(line_number)
             ypos -= self.cursor_line[1]//width if line_number == self.cursor_line[0] else length//width
             
             if ypos < top_y:
@@ -302,7 +302,41 @@ class Editor():
     def move_cursor_up(self, by=1) -> None:
         self.cursor_line = self.displace_cursor_vertically(-by)
         self.draw_cursor()
+    
+    def insert_text(self, text: str = "a") -> None:
+        pass
 
+class BufferEditor(Editor):
+    def __init__(
+        self,
+        text: str = "",
+    ):
+        super(BufferEditor,self).__init__()
+        self.lines: List[str] = split_lines(text)
+        self.cursor_line: LineCoordinates = (self.get_number_of_lines(),0)
+    
+    def reset(self) -> None:
+        self.lines = [""]
+        self.cursor_line = (0,0)
+    
+    def get_line(self, line: int) -> StyledLine:
+        return [(self.lines[line],1)] if 0 <= line < len(self.lines) else []
+    
+    def get_number_of_lines(self) -> int:
+        return len(self.lines)
+    
+    def insert_text(self, text: str = "a") -> None:
+        line_number, position_in_line = self.cursor_line
+        
+        if line_number >= len(self.lines):
+            self.cursor_line = (len(self.lines), len(text))
+            self.lines.append(text)
+        elif line_number >= 0:
+            line: str = self.lines[line_number]
+            self.lines[line_number] = join_strings(line[:position_in_line], text, line[position_in_line:])
+            self.cursor_line = (line_number, position_in_line+len(text))
+            
+        self.draw_cursor()
 
 class StoryEditor(Editor):
     def __init__(
@@ -314,6 +348,7 @@ class StoryEditor(Editor):
         self.cursor_line: LineCoordinates = (fragment_to_position(story, len(story.fragments), get_data=get_fragment_heights)+1, 0)
     
     def run(self, stdscr, listen_input: bool = True):
+        get_fragment_infos(self.story.fragments)
         super(StoryEditor,self).run(stdscr, listen_input)
         #print(self.benchmark())
     
@@ -360,5 +395,6 @@ class StoryEditor(Editor):
 
 
 def launch_editor(story: "Story") -> None:
-    editor = StoryEditor(story)
+    #editor = StoryEditor(story)
+    editor = BufferEditor(text=assemble_story_fragments(story.fragments))
     curses.wrapper(editor.run)
