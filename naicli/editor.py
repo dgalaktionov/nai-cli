@@ -36,6 +36,7 @@ class Editor():
         stdscr.scrollok(True)
         self.init_colors()
         
+        self.cursor_line = self.displace_cursor_horizontally(-1)
         self.screen_line, screen_pos = self.displace_cursor_vertically(by=-self.height+1)
         self.screen_line_y = screen_pos//self.width
         self.display_lines()
@@ -136,13 +137,13 @@ class Editor():
             line_length = self.line_length(line_number)
             position_in_line = line_length + by
         
-        while position_in_line > line_length and line_number < number_of_lines:
+        while position_in_line > line_length and line_number < number_of_lines-1:
             by = position_in_line - line_length - 1
             line_number += 1
             line_length = self.line_length(line_number)
             position_in_line = by
         
-        return min((number_of_lines, 0), max((line_number, position_in_line), (0,0)))
+        return min((number_of_lines-1, line_length), max((line_number, position_in_line), (0,0)))
     
     def displace_cursor_vertically(self, by: int=0, from_pos: Optional[LineCoordinates] = None) -> LineCoordinates:
         line_number, position_in_line = from_pos if from_pos else self.cursor_line
@@ -159,7 +160,7 @@ class Editor():
             line_height = line_length//self.width
             line_y = line_height+by
         
-        while line_y > line_height and line_number < number_of_lines:
+        while line_y > line_height and line_number < number_of_lines-1:
             by = line_y - line_height - 1
             line_number += 1
             line_length = self.line_length(line_number)
@@ -167,7 +168,7 @@ class Editor():
             line_y = by
         
         position_in_line = min(line_length, line_y*self.width+(position_in_line%self.width))
-        return min((number_of_lines, 0), max((line_number, position_in_line), (0,0)))
+        return min((number_of_lines-1, line_length), max((line_number, position_in_line), (0,0)))
         
     def get_line(self, line: int) -> StyledLine:
         raise NotImplemented("Override this method in your editor!")
@@ -301,7 +302,7 @@ class BufferEditor(Editor):
     ):
         super(BufferEditor,self).__init__()
         self.lines: List[str] = split_lines(text)
-        self.cursor_line: LineCoordinates = (self.get_number_of_lines()//2,0)
+        self.cursor_line: LineCoordinates = (self.get_number_of_lines(), 0)
     
     def reset(self) -> None:
         self.lines = [""]
