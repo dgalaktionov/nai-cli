@@ -89,30 +89,9 @@ class Editor():
     def get_cursor_line(self, screen_cursor_pos: Optional[ScreenCoordinates] = None) -> LineCoordinates:
         if screen_cursor_pos == None: screen_cursor_pos = self.stdscr.getyx()
         cursor_y, cursor_x = screen_cursor_pos
-        
         height, width = self.stdscr.getmaxyx()
-        number_of_lines: int = self.get_number_of_lines()
-        line_number: int = self.screen_line
-        y = -self.screen_line_y-1
-        line_length: int = 0
-        
-        while line_number < number_of_lines and y < cursor_y < height:
-            y += 1
-            line_length = self.line_length(line_number)
-            line_height: int = line_length//width
-            
-            y+=line_height
-            if y >= cursor_y:
-                x : int = cursor_x
-                if x < 0:
-                    x = line_length%width if y == cursor_y else width-1
-                    
-                pos: int = width*(line_height-y+cursor_y) + x
-                return (line_number, min(pos, line_length))
-            
-            line_number += 1
-        
-        return (number_of_lines, 0)
+        cursor_line = (self.screen_line, self.screen_line_y*width+cursor_x)
+        return self.displace_cursor_vertically(by=cursor_y, from_pos=cursor_line)
     
     def scroll_to(self, target_line: Optional[Tuple[int,int]] = None) -> None:
         height, width = self.stdscr.getmaxyx()
