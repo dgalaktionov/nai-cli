@@ -81,7 +81,6 @@ class Editor():
     
     def get_screen_cursor(self, destination: Optional[LineCoordinates] = None) -> ScreenCoordinates:
         if destination == None: destination = self.cursor_line
-        if destination < (self.screen_line, self.screen_line_y*self.width): return (-1, 0)
         line_pos: int = min(destination[1], self.line_length(destination[0]))
         x: int = line_pos%self.width
         y: int = self.get_height_from_to(source_line=(self.screen_line, self.screen_line_y), target_line=(destination[0], line_pos//self.width))
@@ -94,7 +93,13 @@ class Editor():
         return self.displace_cursor_vertically(by=cursor_y, from_pos=cursor_line)
     
     def get_height_from_to(self, source_line=Tuple[int,int], target_line=Tuple[int,int]) -> int:
-        return sum([self.line_height(line) for line in range(source_line[0], target_line[0])]) - source_line[1] + target_line[1]
+        sign: int = 1
+        
+        if source_line > target_line: 
+            source_line, target_line = target_line, source_line
+            sign = -1
+        
+        return sign * (sum([self.line_height(line) for line in range(source_line[0], target_line[0])]) - source_line[1] + target_line[1])
     
     def scroll_by(self, by: int = 0) -> None:
         top_y, bottom_y = 0,self.height
@@ -115,6 +120,7 @@ class Editor():
                 from_pos=(target_line[0], target_line[1]*self.width))
             self.screen_line_y = screen_position//self.width
         
+        self.stdscr.clear()
         self.display_lines()
     
     def displace_cursor_horizontally(self, by: int=0, from_pos: Optional[LineCoordinates] = None) -> LineCoordinates:
@@ -177,21 +183,14 @@ class Editor():
     def draw_cursor(self, cursor_position: Optional[ScreenCoordinates] = None) -> None:
         y,x = cursor_position if cursor_position else self.get_screen_cursor()
         
-        if y < 0:
-            if self.screen_line - self.cursor_line[0] < self.height//2:
-                self.scroll_by(-self.get_height_from_to(source_line=(self.cursor_line[0], self.cursor_line[1]//self.width), 
-                    target_line=(self.screen_line, self.screen_line_y)))
-            else:
-                self.scroll_to(cursor_line[0], cursor_line[1]//self.width)
-        
-        elif y < self.height:
+        if 0 <= y < self.height:
             self.stdscr.move(y,x)
+        elif -self.height//2 < y < 0:
+            self.scroll_by(y)
+        elif self.height <= y < self.height + self.height//2:
+            self.scroll_by(y-self.height+1)
         else:
-            if self.cursor_line[0] - self.screen_line < self.height + self.height//2:
-                self.scroll_by(self.get_height_from_to(source_line=(self.screen_line, self.screen_line_y), 
-                    target_line=(self.cursor_line[0], self.cursor_line[1]//self.width)) - self.height + 1)
-            else:
-                self.scroll_to(cursor_line[0], cursor_line[1]//self.width)
+            self.scroll_to((self.cursor_line[0], self.cursor_line[1]//self.width))
     
     def display_lines(self, top_y: Optional[int] = None, bottom_y: Optional[int] = None) -> None:
         bottom_y = bottom_y if bottom_y != None else self.height
