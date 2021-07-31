@@ -20,6 +20,24 @@ origin_colors = {
     Origin.user: 4,
 }
 
+def split_styled_line(line: StyledLine, at: int) -> Tuple[StyledLine, StyledLine]:
+    left: StyledLine = []
+    right: StyledLine = []
+    i: int = 0
+    
+    for text,style in line:
+        if i >= at:
+            right.append((text,style))
+        elif i+len(text) <= at:
+            left.append((text,style))
+        else:
+            left.append((text[:at-i], style))
+            right.append((text[at-i:], style))
+        
+        i += len(text)
+    
+    return left, right
+
 class Editor():
     def __init__(
         self
@@ -48,6 +66,7 @@ class Editor():
             curses.KEY_UP: self.move_cursor_up,
             curses.KEY_DOWN: self.move_cursor_down,
             ord("a"): self.insert_text,
+            ord("\n"): self.insert_newline,
         }
         
         if listen_input:
@@ -211,19 +230,7 @@ class Editor():
             if top_line_y > 0 and line_number == top_line:
                 # we've gotta trim this line to fit
                 to_skip: int = self.width*top_line_y
-                skipped_text: int = 0
-                trimmed_line: StyledLine = []
-                
-                for text,style in line:
-                    if skipped_text >= to_skip:
-                        trimmed_line.append((text,style))
-                    else:
-                        skipped_text += len(text)
-                        
-                        if skipped_text > to_skip:
-                            trimmed_line.append((text[len(text)-skipped_text+to_skip:],style))
-                
-                line = trimmed_line
+                line = split_styled_line(line, to_skip)[1]
                 length -= to_skip
             
             self.stdscr.move(ypos,xpos)
@@ -266,6 +273,9 @@ class Editor():
         self.draw_cursor()
     
     def insert_text(self, text: str = "a") -> None:
+        pass
+    
+    def insert_newline(self) -> None:
         pass
     
     
@@ -316,7 +326,24 @@ class BufferEditor(Editor):
             if self.stdscr != None:
                 self.stdscr.clrtobot()
                 self.display_lines(top_y=self.get_screen_cursor()[0])
+    
+    def insert_newline(self) -> None:
+        line_number, position_in_line = self.cursor_line
         
+        if 0 <= line_number < len(self.lines):
+            if position_in_line <= 0:
+                self.lines.insert(line_number, "")
+            elif position_in_line >= self.line_length(line_number):
+                self.lines.insert(line_number+1, "")
+            else:
+                line: str = self.lines[line_number]
+                self.lines[line_number:line_number+1] = [line[:position_in_line], line[position_in_line:]]
+            
+            self.cursor_line = (line_number+1, 0)
+            
+            if self.stdscr != None:
+                self.stdscr.clrtobot()
+                self.display_lines(top_y=self.get_screen_cursor()[0])
 
 class StoryEditor(Editor):
     def __init__(
