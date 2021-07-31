@@ -81,18 +81,10 @@ class Editor():
     
     def get_screen_cursor(self, destination: Optional[LineCoordinates] = None) -> ScreenCoordinates:
         if destination == None: destination = self.cursor_line
-        line_number: int = self.screen_line
-        y,x= -self.screen_line_y,0
-        
-        while line_number < destination[0] and y < self.height:
-            y += self.line_height(line_number)
-            line_number += 1
-        
-        if line_number >= destination[0]:
-            line_pos: int = min(destination[1], self.line_length(line_number))
-            x = line_pos%self.width
-            y += line_pos//self.width if line_number == destination[0] else -1
-        
+        if destination < (self.screen_line, self.screen_line_y*self.width): return (-1, 0)
+        line_pos: int = min(destination[1], self.line_length(destination[0]))
+        x: int = line_pos%self.width
+        y: int = self.get_height_from_to(source_line=(self.screen_line, self.screen_line_y), target_line=(destination[0], line_pos//self.width))
         return (y,x)
     
     def get_cursor_line(self, screen_cursor_pos: Optional[ScreenCoordinates] = None) -> LineCoordinates:
@@ -324,7 +316,8 @@ class BufferEditor(Editor):
             line: str = self.lines[line_number]
             self.lines[line_number] = join_strings(line[:position_in_line], text, line[position_in_line:])
             self.cursor_line = (line_number, position_in_line+len(text))
-            
+        
+        
         self.draw_cursor()
         
 

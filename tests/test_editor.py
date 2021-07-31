@@ -34,7 +34,7 @@ def editor_initializes(e):
     
 
 def editor_cursor(e):
-    height, width = e.stdscr.getmaxyx()
+    height, width = e.height, e.width
     screen_y, screen_x = e.stdscr.getyx()
     assert 0 <= screen_y < height
     assert 0 <= screen_x < width
@@ -49,27 +49,25 @@ def editor_cursor(e):
     line_length = e.line_length(line_number)
     line_chunk, chunk_pos = next(((i, len(line[i][0])+line_pos-l) for i,l in enumerate(accumulate(len(text) for text,_ in line)) if l > line_pos), (0,0))
     number_of_lines = e.get_number_of_lines()
-    max_y: int = 0
     
     for y in range(height):
-        if line_number < number_of_lines:
-            max_y = y
-            
-            if line_pos > line_length:
-                line_pos = 0
-                line_number += 1
-                line = e.get_line(line_number)
-                line_length = e.line_length(line_number)
-                line_chunk = 0
-                chunk_pos = 0
+        if line_number < number_of_lines and line_pos > line_length:
+            line_pos = 0
+            line_number += 1
+            line = e.get_line(line_number)
+            line_length = e.line_length(line_number)
+            line_chunk = 0
+            chunk_pos = 0
         
         for x in range(width):
             c = e.stdscr.instr(y,x,1)
             
             if line_pos >= line_length:
                 assert c == b" "
-                assert e.get_screen_cursor((line_number, min(line_pos,line_length))) == (max_y, min(line_pos,line_length)%width)
-                assert e.get_cursor_line((y,x)) == (line_number, line_length)
+                
+                if line_number < number_of_lines: 
+                    assert e.get_screen_cursor((line_number, min(line_pos,line_length))) == (y, min(line_pos,line_length)%width)
+                    assert e.get_cursor_line((y,x)) == (line_number, line_length)
                 line_pos += 1
             else:
                 while chunk_pos >= len(line[line_chunk][0]):
