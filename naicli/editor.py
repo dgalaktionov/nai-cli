@@ -308,16 +308,14 @@ class BufferEditor(Editor):
     def insert_text(self, text: str = "a") -> None:
         line_number, position_in_line = self.cursor_line
         
-        if line_number >= len(self.lines):
-            self.cursor_line = (len(self.lines), len(text))
-            self.lines.append(text)
-        elif line_number >= 0:
+        if 0 <= line_number < len(self.lines):
             line: str = self.lines[line_number]
             self.lines[line_number] = join_strings(line[:position_in_line], text, line[position_in_line:])
             self.cursor_line = (line_number, position_in_line+len(text))
-        
-        
-        self.draw_cursor()
+            
+            if self.stdscr != None:
+                self.stdscr.clrtobot()
+                self.display_lines(top_y=self.get_screen_cursor()[0])
         
 
 class StoryEditor(Editor):
