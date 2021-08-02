@@ -193,6 +193,10 @@ class Editor():
     def get_number_of_lines(self) -> int:
         raise NotImplemented("Override this method in your editor!")
     
+    def get_last_position(self) -> LineCoordinates:
+        last_line: int = self.get_number_of_lines()-1
+        return (last_line, self.line_length(last_line))
+    
     def line_length(self, line: int) -> int:
         return sum([len(text) for text,_ in self.get_line(line)])
     
@@ -303,11 +307,15 @@ class BufferEditor(Editor):
     ):
         super(BufferEditor,self).__init__()
         self.lines: List[str] = split_lines(text)
-        self.cursor_line: LineCoordinates = (self.get_number_of_lines(), 0)
+        self.cursor_line: LineCoordinates = (0,0)
+        self.stdscr = None
     
     def reset(self) -> None:
         self.lines = [""]
         self.cursor_line = (0,0)
+    
+    def is_empty(self) -> bool:
+        return len(self.lines) == 1 and self.lines[0] == ""
     
     def get_line(self, line: int) -> StyledLine:
         return [(self.lines[line],1)] if 0 <= line < len(self.lines) else []
@@ -352,6 +360,8 @@ class StoryEditor(Editor):
     ):
         super(StoryEditor,self).__init__()
         self.story: "Story" = story
+        self.buffer = BufferEditor()
+        self.buffer_line: LineCoordinates = (0,0)
         self.cursor_line: LineCoordinates = (fragment_to_position(story, len(story.fragments), get_data=get_fragment_heights)+1, 0)
     
     def run(self, stdscr, listen_input: bool = True):
@@ -369,7 +379,23 @@ class StoryEditor(Editor):
     
     def get_line(self, line: int) -> StyledLine:
         line_chunks: StyledLine = []
-        fragment_number, relative_line = line_to_fragment(self.story, line)
+        buffer_offset: int = 0
+        
+        if not self.buffer.is_empty() and line > self.buffer_line[0]:
+            # the case for the first line of the buffer is considered later
+            max_buffer_line: int = self.buffer.get_number_of_lines()-1
+            
+            if line-self.buffer_line[0] <= max_buffer_line:
+                # we're inside the buffer, past its first line!
+                line_chunks = self.buffer.get_line(line-self.buffer_line[0])
+            
+                if line-self.buffer_line[0] < max_buffer_line:
+                    # we're not at its last line, so there is no potential further text to append
+                    return line_chunks
+            
+            buffer_offset = max_buffer_line
+        
+        fragment_number, relative_line = line_to_fragment(self.story, line-buffer_offset)
         if fragment_number >= len(self.story.fragments): return line_chunks
         fragment_info: "FragmentInfo" = get_fragment_info(self.story.fragments[fragment_number])
         
@@ -386,10 +412,26 @@ class StoryEditor(Editor):
             fragment_info = fragment_info.next
             relative_line = 0
         
+        if not self.buffer.is_empty():
+            max_buffer_line: int = self.buffer.get_number_of_lines()-1
+            
+            if line == self.buffer_line[0] or line-self.buffer_line[0] == max_buffer_line:
+                # we're either at the first or last line of the buffer, must split
+                left, right = split_styled_line(line_chunks, self.buffer_line[1])
+                
+                if line == self.buffer_line[0]:
+                    # we must insert the first line of the buffer at the end
+                    line_chunks = [*left, *self.buffer.get_line(0)]
+                
+                if line-self.buffer_line[0] == max_buffer_line:
+                    # we are at the last line of the buffer, append the rest of the fragments
+                    line_chunks = [*self.buffer.get_line(0), *right]
+        
         return line_chunks
     
     def get_number_of_lines(self) -> int:
-        return 1+fragment_to_position(self.story, len(self.story.fragments), get_data=get_fragment_heights)
+        return 1 + fragment_to_position(self.story, len(self.story.fragments), get_data=get_fragment_heights) + \
+            self.buffer.get_number_of_lines()-1
 
     def benchmark(self, n=10000) -> float:
         from timeit import timeit
@@ -398,10 +440,45 @@ class StoryEditor(Editor):
         #return timeit(lambda: self.display_on_screen(self.get_top_screen_fragment()), number=n)/n
         #return timeit(lambda: self.display_lines(), number=n)/n
         #return timeit(lambda: self.get_screen_cursor(), number=n)/n
+    
+    def buffer_to_line(self, buffer_position: Optional[LineCoordinates] = None) -> LineCoordinates:
+        buffer_position = buffer_position if buffer_position != None else self.buffer.cursor_line
+        return (self.buffer_line[0] + buffer_position[0], 
+            self.buffer_line[1] + buffer_position[1] if buffer_position[0] == 0 else buffer_position[1])
+    
+    def line_to_buffer(self, absolute_position: Optional[LineCoordinates] = None) -> LineCoordinates:
+        absolute_position = absolute_position if absolute_position != None else self.cursor_line
+        return (absolute_position[0] - self.buffer_line[0], 
+            absolute_position[1] - self.buffer_line[1] if absolute_position[0] == self.buffer_line[0] else absolute_position[1])
+    
+    def is_cursor_in_buffer(self) -> bool:
+        return (0,0) <= self.line_to_buffer() <= self.buffer.get_last_position()
+    
+    def insert_text(self, text: str = "a") -> None:
+        self.buffer.cursor_line = self.line_to_buffer()
         
+        if not self.is_cursor_in_buffer():
+            self.buffer.reset()
+            self.buffer_line = self.cursor_line
+        
+        self.buffer.insert_text(text)
+        self.stdscr.clrtobot()
+        self.display_lines(top_y=self.get_screen_cursor()[0])
+    
+    def insert_newline(self) -> None:
+        self.buffer.cursor_line = self.line_to_buffer()
+        
+        if not self.is_cursor_in_buffer():
+            self.buffer.reset()
+            self.buffer_line = self.cursor_line
+        
+        self.buffer.insert_newline()
+        self.stdscr.clrtobot()
+        self.display_lines(top_y=self.get_screen_cursor()[0])
+    
 
 
 def launch_editor(story: "Story") -> None:
-    #editor = StoryEditor(story)
-    editor = BufferEditor(text=assemble_story_fragments(story.fragments))
+    editor = StoryEditor(story)
+    #editor = BufferEditor(text=assemble_story_fragments(story.fragments))
     curses.wrapper(editor.run)
