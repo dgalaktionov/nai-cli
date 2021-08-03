@@ -387,16 +387,11 @@ class StoryEditor(Editor):
         if not self.buffer.is_empty() and line > self.buffer_line[0]:
             # the case for the first line of the buffer is considered later
             max_buffer_line: int = self.buffer.get_number_of_lines()-1
-            
-            if line-self.buffer_line[0] <= max_buffer_line:
-                # we're inside the buffer, past its first line!
-                line_chunks = self.buffer.get_line(line-self.buffer_line[0])
-            
-                if line-self.buffer_line[0] < max_buffer_line:
-                    # we're not at its last line, so there is no potential further text to append
-                    return line_chunks
-            
             buffer_offset = max_buffer_line
+            
+            if line-self.buffer_line[0] < max_buffer_line:
+                # we're inside the buffer, past its first line but before reaching the last one!
+                return self.buffer.get_line(line-self.buffer_line[0])
         
         fragment_number, relative_line = line_to_fragment(self.story, line-buffer_offset)
         if fragment_number >= len(self.story.fragments): return line_chunks
@@ -427,7 +422,7 @@ class StoryEditor(Editor):
                     # we must insert the first line of the buffer at the end
                     line_chunks = left
                 
-                line_chunks.extend(self.buffer.get_line(0))
+                line_chunks.extend(self.buffer.get_line(line-self.buffer_line[0]))
                 
                 if line-self.buffer_line[0] == max_buffer_line:
                     # we are at the last line of the buffer, append the rest of the fragments
@@ -469,8 +464,6 @@ class StoryEditor(Editor):
             origin: "Origin" = Origin.edit
             last_line: int = fragment_to_position(self.story, len(self.story.fragments), get_data=get_fragment_heights)
             
-            print(self.buffer_line, (last_line, fragment_info.line_lengths[relative_line]))
-            
             if self.buffer_line >= (last_line, fragment_info.line_lengths[relative_line]):
                 # we are at the end of a text, it's a "user" origin instead of edit!
                 origin = Origin.user
@@ -491,20 +484,24 @@ class StoryEditor(Editor):
     def insert_text(self, text: str = "a") -> None:
         if not self.is_cursor_in_buffer():
             self.reset_buffer()
+        else:
+            self.buffer.cursor_line = self.line_to_buffer()
         
         self.buffer.insert_text(text)
+        self.cursor_line = self.buffer_to_line()
         self.stdscr.clrtobot()
-        #self.display_lines(top_y=self.get_screen_cursor()[0])
-        self.display_lines()
+        self.display_lines(top_y=self.get_screen_cursor()[0])
     
     def insert_newline(self) -> None:
         if not self.is_cursor_in_buffer():
             self.reset_buffer()
+        else:
+            self.buffer.cursor_line = self.line_to_buffer()
         
         self.buffer.insert_newline()
+        self.cursor_line = self.buffer_to_line()
         self.stdscr.clrtobot()
-        #self.display_lines(top_y=self.get_screen_cursor()[0])
-        self.display_lines()
+        self.display_lines(top_y=self.get_screen_cursor()[0])
     
 
 
