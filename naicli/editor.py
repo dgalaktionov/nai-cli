@@ -318,10 +318,13 @@ class BufferEditor(Editor):
         return len(self.lines) == 1 and self.lines[0] == ""
     
     def get_line(self, line: int) -> StyledLine:
-        return [(self.lines[line],1)] if 0 <= line < len(self.lines) else []
+        return [(self.lines[line], curses.color_pair(99) | curses.A_BOLD)] if 0 <= line < len(self.lines) else []
     
     def get_number_of_lines(self) -> int:
         return len(self.lines)
+    
+    def get_text(self) -> str:
+        return "\n".join(self.lines)
     
     def insert_text(self, text: str = "a") -> None:
         line_number, position_in_line = self.cursor_line
@@ -418,14 +421,17 @@ class StoryEditor(Editor):
             if line == self.buffer_line[0] or line-self.buffer_line[0] == max_buffer_line:
                 # we're either at the first or last line of the buffer, must split
                 left, right = split_styled_line(line_chunks, self.buffer_line[1])
+                line_chunks = []
                 
                 if line == self.buffer_line[0]:
                     # we must insert the first line of the buffer at the end
-                    line_chunks = [*left, *self.buffer.get_line(0)]
+                    line_chunks = left
+                
+                line_chunks.extend(self.buffer.get_line(0))
                 
                 if line-self.buffer_line[0] == max_buffer_line:
                     # we are at the last line of the buffer, append the rest of the fragments
-                    line_chunks = [*self.buffer.get_line(0), *right]
+                    line_chunks.extend(right)
         
         return line_chunks
     
@@ -454,27 +460,51 @@ class StoryEditor(Editor):
     def is_cursor_in_buffer(self) -> bool:
         return (0,0) <= self.line_to_buffer() <= self.buffer.get_last_position()
     
-    def insert_text(self, text: str = "a") -> None:
-        self.buffer.cursor_line = self.line_to_buffer()
+    def reset_buffer(self) -> None:
+        if not self.buffer.is_empty():
+            fragment_number, relative_line = line_to_fragment(self.story, self.buffer_line[0])
+            fragment_info: "FragmentInfo" = get_fragment_info(self.story.fragments[fragment_number])
+            line_position: int = fragment_info.line_to_pos(relative_line)
+            position_in_fragment: int = line_position + self.buffer_line[1]
+            origin: "Origin" = Origin.edit
+            last_line: int = fragment_to_position(self.story, len(self.story.fragments), get_data=get_fragment_heights)
+            
+            print(self.buffer_line, (last_line, fragment_info.line_lengths[relative_line]))
+            
+            if self.buffer_line >= (last_line, fragment_info.line_lengths[relative_line]):
+                # we are at the end of a text, it's a "user" origin instead of edit!
+                origin = Origin.user
+            
+            absolute_position: int = fragment_to_position(self.story, fragment_number) + position_in_fragment
+            insert_text(self.story, self.buffer.get_text(), absolute_position, origin=origin)
         
+        
+        self.buffer.reset()
+        self.buffer_line = self.cursor_line
+    
+    def draw_cursor(self, cursor_position: Optional[ScreenCoordinates] = None) -> None:
         if not self.is_cursor_in_buffer():
-            self.buffer.reset()
-            self.buffer_line = self.cursor_line
+            self.reset_buffer()
+        
+        super(StoryEditor,self).draw_cursor(cursor_position)
+    
+    def insert_text(self, text: str = "a") -> None:
+        if not self.is_cursor_in_buffer():
+            self.reset_buffer()
         
         self.buffer.insert_text(text)
         self.stdscr.clrtobot()
-        self.display_lines(top_y=self.get_screen_cursor()[0])
+        #self.display_lines(top_y=self.get_screen_cursor()[0])
+        self.display_lines()
     
     def insert_newline(self) -> None:
-        self.buffer.cursor_line = self.line_to_buffer()
-        
         if not self.is_cursor_in_buffer():
-            self.buffer.reset()
-            self.buffer_line = self.cursor_line
+            self.reset_buffer()
         
         self.buffer.insert_newline()
         self.stdscr.clrtobot()
-        self.display_lines(top_y=self.get_screen_cursor()[0])
+        #self.display_lines(top_y=self.get_screen_cursor()[0])
+        self.display_lines()
     
 
 
