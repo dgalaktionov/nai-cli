@@ -45,6 +45,28 @@ class Editor():
         self.cursor_line: LineCoordinates = (0,0)
         self.screen_line, self.screen_line_y = 0,0
         self.running: bool = False
+        
+        self.event_handlers = {
+            27: self.quit,
+            curses.KEY_LEFT: self.move_cursor_left,
+            curses.KEY_RIGHT: self.move_cursor_right,
+            curses.KEY_UP: self.move_cursor_up,
+            curses.KEY_DOWN: self.move_cursor_down,
+            ord("\n"): self.insert_newline,
+        }
+    
+    def special_handler(self, key: int):
+        if key in self.event_handlers: 
+            self.event_handlers[key]()
+        else:
+            print("Unknown key {}", key)
+    
+    def input_handler(self, key: int):
+        #print("Input key {}", key)
+        if key in self.event_handlers: 
+            self.event_handlers[key]()
+        else:
+            self.insert_text(chr(key))
     
     def run(self, stdscr, listen_input: bool = True):
         self.stdscr = stdscr
@@ -59,21 +81,14 @@ class Editor():
         self.screen_line_y = screen_pos//self.width
         self.display_lines()
         
-        event_handlers = {
-            ord("q"): self.quit,
-            curses.KEY_LEFT: self.move_cursor_left,
-            curses.KEY_RIGHT: self.move_cursor_right,
-            curses.KEY_UP: self.move_cursor_up,
-            curses.KEY_DOWN: self.move_cursor_down,
-            ord("a"): self.insert_text,
-            ord("\n"): self.insert_newline,
-        }
-        
         if listen_input:
             self.running = True
             while self.running:
                 c = stdscr.getch()
-                if c in event_handlers: event_handlers[c]()
+                if curses.KEY_MIN <= c <= curses.KEY_MAX:
+                    self.special_handler(c)
+                else:
+                    self.input_handler(c)
         
         #print(self.benchmark())
     
