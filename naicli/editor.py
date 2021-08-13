@@ -59,7 +59,7 @@ class Editor():
         if key in self.event_handlers: 
             self.event_handlers[key]()
         else:
-            print("Unknown key {}", key)
+            print("Unknown special key {}", key)
     
     def input_handler(self, key: int):
         #print("Input key {}", key)
