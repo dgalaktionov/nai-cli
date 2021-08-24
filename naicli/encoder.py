@@ -132,6 +132,7 @@ class Encoder:
         text = bytearray([self.byte_decoder[c] for c in text]).decode('utf-8', errors=self.errors)
         return text
 
+@lru_cache()
 def get_encoder(path_json="encoder.json", path_bpe="vocab.bpe"):
     with open(path_json, 'r') as f:
         encoder = json.load(f)

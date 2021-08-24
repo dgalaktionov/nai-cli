@@ -2,7 +2,8 @@ import sys
 
 #from . import repl
 from .story import *
-from . import editor
+#from . import editor
+from . import context
 
 def main(argv=sys.argv):
     book = open_story_file("example/grug.story")
@@ -15,8 +16,10 @@ def main(argv=sys.argv):
         # bigtext = bigfile.read()
         
     #repl.start_prompt(bigtext)
-    editor.launch_editor(book.content.story)
+    #editor.launch_editor(book.content.story)
     
+    tokens = context.build_context(book.content)
+    print(tokens)
 
 if __name__ == "__main__":
     main(sys.argv)
